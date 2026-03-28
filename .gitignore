@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+mcp-server/node_modules/
+
+# Next.js
+.next/
+out/
+
+# production
+build/
+dist/
+
+# env files — NEVER commit secrets
+.env
+.env.local
+.env.production
+.env*.local
+mcp-server/.env
+
+# Google OAuth
+credentials.json
+token.json
+token*.json
+
+# Supabase
+.supabase/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
