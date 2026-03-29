@@ -27,22 +27,17 @@ export async function sendEmail(input: {
   const gmail = await getGmailClient(user_email);
   const supabase = createServerSupabase();
 
-  // Fetch CV from Supabase Storage
-  const { data: cvData, error: cvError } = await supabase.storage
+  // Attach CV PDF if one exists in storage (uploaded via PDF mode — optional)
+  let attachment: { filename: string; data: Buffer; mimeType: string } | undefined;
+  const { data: cvData } = await supabase.storage
     .from("cv-files")
     .download(`${user_email}/cv.pdf`);
 
-  if (cvError || !cvData) {
-    throw new Error("CV not found in storage — please re-upload your CV from My Profile before sending");
+  if (cvData) {
+    const arrayBuffer = await cvData.arrayBuffer();
+    const filename = chef_name ? `CV - ${chef_name}.pdf` : "CV.pdf";
+    attachment = { filename, data: Buffer.from(arrayBuffer), mimeType: "application/pdf" };
   }
-
-  const arrayBuffer = await cvData.arrayBuffer();
-  const filename = chef_name ? `CV - ${chef_name}.pdf` : "CV.pdf";
-  const attachment = {
-    filename,
-    data: Buffer.from(arrayBuffer),
-    mimeType: "application/pdf",
-  };
 
   const raw = buildRfc2822Email(to_email, subject, body, senderEmail, attachment);
 
@@ -78,6 +73,6 @@ export async function sendEmail(input: {
     message_id: sendRes.data.id,
     thread_id: threadId,
     sent_at: sentAt,
-    cv_attached: true,
+    cv_attached: !!attachment,
   };
 }
