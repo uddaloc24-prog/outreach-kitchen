@@ -29,6 +29,24 @@ export async function callGroq(
   return response.choices[0]?.message?.content ?? "";
 }
 
+/** For prose generation — no JSON mode constraint so the model writes more naturally. */
+export async function callGroqText(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens = 1024
+): Promise<string> {
+  const client = getClient();
+  const response = await client.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    max_tokens: maxTokens,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+  });
+  return response.choices[0]?.message?.content ?? "";
+}
+
 export function parseJsonResponse<T>(text: string): T {
   const cleaned = text
     .replace(/^```(?:json)?\s*/i, "")

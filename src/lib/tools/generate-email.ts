@@ -1,12 +1,12 @@
-import { callGroq, parseJsonResponse } from "@/lib/groq";
+import { callGroqText, parseJsonResponse } from "@/lib/groq";
 import type { GeneratedEmail, ResearchBrief, ParsedProfile } from "@/types";
 
-function formatProfileForEmail(profile: ParsedProfile): string {
-  const expLines = profile.experiences.slice(0, 4).map((e) => {
-    const bullets = e.highlights.slice(0, 3).map((h) => `  — ${h}`).join("\n");
-    return `${e.role}, ${e.place} (${e.period})\n${bullets}`;
+function buildProfileNarrative(profile: ParsedProfile): string {
+  const topExp = profile.experiences.slice(0, 5).map((e) => {
+    const highlights = e.highlights.slice(0, 4).join(" | ");
+    return `${e.role} at ${e.place} (${e.period})${highlights ? ` — ${highlights}` : ""}`;
   });
-  return `${expLines.join("\n\n")}\n\nEducation: ${profile.education}`.trim();
+  return topExp.join("\n");
 }
 
 export async function generateEmail(input: {
@@ -16,53 +16,65 @@ export async function generateEmail(input: {
   research_brief: ResearchBrief;
   user_profile: ParsedProfile;
 }): Promise<GeneratedEmail> {
-  const { restaurant_name, research_brief, user_profile } = input;
-  const profileText = formatProfileForEmail(user_profile);
+  const { restaurant_name, research_brief, user_profile, head_chef } = input;
+  const profileNarrative = buildProfileNarrative(user_profile);
   const signoff = [
-    "Kind regards,",
     user_profile.name,
     user_profile.email,
     user_profile.phone || "",
   ].filter(Boolean).join("\n");
-  const subjectLine = `Kitchen Application - ${user_profile.name}`;
 
-  const systemPrompt = `You are a ghostwriter for elite culinary professionals. You write cover emails that get callbacks. Your emails are direct, specific, and human — never generic, never desperate, never corporate. Every word is chosen because it earns its place.`;
+  const systemPrompt = `You are writing a kitchen application email on behalf of ${user_profile.name}. Your job is to write something that makes the chef de cuisine stop, feel something, and immediately want to meet this person.
 
-  const userPrompt = `Write a cover email for ${user_profile.name} applying to ${restaurant_name}.
+The email must sound like a real human wrote it — someone with a specific point of view, genuine memories, and real hunger to be in this particular kitchen. It must not sound like a template, a cover letter, or a LinkedIn message.
 
-MY CV:
-${profileText}
+What separates a great chef application email from a generic one:
+- It opens with a specific, earned observation — not praise, not "I am applying"
+- It makes ONE strong, clear argument for why this person belongs there, not a list of credentials
+- It references something real and specific about the restaurant that only someone who truly cares would know
+- It sounds like the chef has a voice — direct, a little proud, genuinely curious
+- It ends without grovelling — the tone is "I think we'd make interesting work together", never "I hope you consider me"
 
-WHAT I KNOW ABOUT THIS KITCHEN:
+You must return a JSON object and nothing else. No markdown, no preamble.`;
+
+  const userPrompt = `Write a kitchen application email from ${user_profile.name} to ${restaurant_name}${head_chef ? ` (head chef: ${head_chef})` : ""}.
+
+CHEF'S CAREER:
+${profileNarrative}
+
+WHAT THIS KITCHEN IS ABOUT:
 ${research_brief.kitchen_identity}
+
+WHAT THEY LOOK FOR IN A HIRE:
 ${research_brief.what_they_hire_for}
-WHY I FIT: ${research_brief.your_connection}
 
-WRITE THE EMAIL EXACTLY LIKE THIS:
+THE GENUINE CONNECTION — make this the spine of the email:
+${research_brief.your_connection}
 
-PARAGRAPH 1 — HOOK (2–3 sentences):
-Do NOT open with "I am applying for" or "I am writing to". Instead, open with a specific observation about ${restaurant_name}'s kitchen identity or philosophy that shows you've done your research. Then state clearly who you are and what you bring.
+RULES — follow every one exactly:
+1. Body must be 150–180 words. Count carefully.
+2. Do NOT open with: "I am writing", "I am applying", "My name is", "I would love to", or any variation.
+3. Open sentence: a specific, concrete observation about ${restaurant_name}'s cooking or philosophy — something that proves real thought went into this, not generic praise.
+4. Build exactly ONE clear argument for why ${user_profile.name} belongs here. Draw from the genuine connection above.
+5. Name at least one real place or role from their career — but only in service of the argument, not as credential-dropping.
+6. Final sentence: direct and confident. No "I hope", "I would be grateful", "please consider me".
+7. Subject line: specific to this restaurant — not "Kitchen Application". Make it feel like it was written for ${restaurant_name} alone.
+8. Tone: unhurried, precise, and human. Like a chef who knows what they're worth and doesn't need to oversell.
 
-PARAGRAPH 2 — PROOF (3–4 sentences):
-Connect my specific experience directly to what ${restaurant_name} needs. Use real roles and places from my CV. Name concrete outcomes — not duties. Show exactly how my background fits what they hire for.
-
-PARAGRAPH 3 — CLOSE (1–2 sentences):
-End with confidence, not begging. Express genuine interest in joining their kitchen. Do not say "I would be grateful" or "I hope to hear from you."
-
-SIGN-OFF (put this exactly at the end, on separate lines):
+SIGN-OFF (place exactly at the end of the body, on new lines):
 ${signoff}
 
-CONSTRAINTS:
-- Under 200 words total (body only, not subject line)
-- Tone: confident, precise, warm — like a chef who knows their worth
-- Subject line: "${subjectLine}"
-- No flattery, no desperation, no clichés
-- Return JSON only: { "subject": string, "body": string, "word_count": number }
-No preamble. No markdown. No code blocks.`;
+Return ONLY this JSON object, with no other text before or after:
+{ "subject": "<subject line>", "body": "<full email body including sign-off>", "word_count": <number> }`;
 
-  const response = await callGroq(systemPrompt, userPrompt, 1024);
-  const parsed = parseJsonResponse<GeneratedEmail>(response);
+  const response = await callGroqText(systemPrompt, userPrompt, 1200);
 
+  const cleaned = response
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/, "")
+    .trim();
+
+  const parsed = parseJsonResponse<GeneratedEmail>(cleaned);
   parsed.word_count = parsed.body.trim().split(/\s+/).filter(Boolean).length;
   return parsed;
 }
