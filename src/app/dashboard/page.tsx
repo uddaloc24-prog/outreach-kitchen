@@ -8,11 +8,59 @@ import { DashboardStatsRow } from "@/components/DashboardStats";
 import { FollowUpQueue } from "@/components/FollowUpQueue";
 import { StatusBadge } from "@/components/ui/badge";
 import { starsDisplay, formatDate } from "@/lib/utils";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { RestaurantWithOutreach, DashboardStats } from "@/types";
+
+function LogRow({ r }: { r: RestaurantWithOutreach }) {
+  const [expanded, setExpanded] = useState(false);
+  const subject = (r.outreach_log as unknown as Record<string, string>)?.email_subject;
+  const body = (r.outreach_log as unknown as Record<string, string>)?.email_body;
+
+  return (
+    <>
+      <tr
+        className="border-b border-warm-border/50 hover:bg-surface transition-colors cursor-pointer"
+        onClick={() => body && setExpanded((v) => !v)}
+      >
+        <td className="px-6 py-3 text-small text-muted whitespace-nowrap">
+          {r.outreach_log?.sent_at ? formatDate(r.outreach_log.sent_at) : "—"}
+        </td>
+        <td className="px-4 py-3">
+          <span className="font-display text-[16px] text-ink">{r.name}</span>
+          <span className="text-small text-muted ml-2">{r.city}</span>
+        </td>
+        <td className="px-4 py-3 text-small text-ink max-w-[300px] truncate">
+          {subject ?? "—"}
+        </td>
+        <td className="px-4 py-3">
+          <span className="text-gold text-[13px]">{starsDisplay(r.stars)}</span>
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <StatusBadge status={r.outreach_log?.status ?? "not_contacted"} />
+            {body && (
+              expanded
+                ? <ChevronUp size={12} className="text-muted" />
+                : <ChevronDown size={12} className="text-muted" />
+            )}
+          </div>
+        </td>
+      </tr>
+      {expanded && body && (
+        <tr className="border-b border-warm-border/50 bg-surface">
+          <td colSpan={5} className="px-6 py-4">
+            <pre className="text-small text-ink whitespace-pre-wrap font-sans leading-relaxed max-w-[800px]">
+              {body}
+            </pre>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
 
 export default function DashboardPage() {
   const { data: session, status: authStatus } = useSession();
@@ -146,8 +194,9 @@ export default function DashboardPage() {
           <table className="w-full border-collapse border border-warm-border">
             <thead>
               <tr className="bg-surface border-b border-warm-border">
-                <th className="text-left px-6 py-3 text-label text-muted">Date</th>
+                <th className="text-left px-6 py-3 text-label text-muted w-[120px]">Date</th>
                 <th className="text-left px-4 py-3 text-label text-muted">Restaurant</th>
+                <th className="text-left px-4 py-3 text-label text-muted">Subject</th>
                 <th className="text-left px-4 py-3 text-label text-muted w-[80px]">Stars</th>
                 <th className="text-left px-4 py-3 text-label text-muted w-[160px]">Status</th>
               </tr>
@@ -155,27 +204,13 @@ export default function DashboardPage() {
             <tbody>
               {log.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-10 text-muted text-body">
+                  <td colSpan={5} className="text-center py-10 text-muted text-body">
                     No emails sent yet.
                   </td>
                 </tr>
               ) : (
                 log.map((r) => (
-                  <tr key={r.id} className="border-b border-warm-border/50 hover:bg-surface transition-colors">
-                    <td className="px-6 py-3 text-small text-muted">
-                      {r.outreach_log?.sent_at ? formatDate(r.outreach_log.sent_at) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-display text-[16px] text-ink">{r.name}</span>
-                      <span className="text-small text-muted ml-2">{r.city}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-gold text-[13px]">{starsDisplay(r.stars)}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={r.outreach_log?.status ?? "not_contacted"} />
-                    </td>
-                  </tr>
+                  <LogRow key={r.id} r={r} />
                 ))
               )}
             </tbody>

@@ -8,10 +8,10 @@ interface DashboardStatsProps {
 
 export function DashboardStatsRow({ stats }: DashboardStatsProps) {
   const tiles = [
-    { label: "In List", value: stats.total, color: "text-ink" },
-    { label: "Sent", value: stats.sent, color: "text-muted" },
+    { label: "Emails Sent", value: stats.sent, color: "text-ink" },
     { label: "Replied", value: stats.replied, color: "text-success-green" },
     { label: "Follow-ups Due", value: stats.followup_due, color: "text-rust" },
+    { label: "Draft Ready", value: stats.draft_ready, color: "text-muted" },
   ];
 
   return (
