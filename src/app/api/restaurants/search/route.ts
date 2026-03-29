@@ -35,7 +35,7 @@ async function tavilySearch(query: string): Promise<TavilyResult[]> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: apiKey,
-        query: `${query} restaurant`,
+        query: `${query} restaurant michelin fine dining`,
         search_depth: "basic",
         max_results: 8,
         include_raw_content: false,
@@ -67,7 +67,7 @@ async function extractFromResults(
       {
         role: "system",
         content:
-          "You are a data extractor. Extract restaurant information ONLY from the provided search results. Do NOT invent or add restaurants not mentioned in the results. Return valid JSON only.",
+          "You are a data extractor for a chef's job application tool. Extract restaurant information ONLY from the provided search results. Do NOT invent or add restaurants not mentioned in the results. Return valid JSON only.",
       },
       {
         role: "user",
@@ -77,9 +77,21 @@ Here are real web search results:
 
 ${context}
 
-Extract restaurants from these results that match the search query.
+Extract ONLY world-class fine dining restaurants from these results that match the search query.
+
+STRICT CRITERIA — only include a restaurant if it meets at least one:
+- Has Michelin stars (1, 2, or 3)
+- Is ranked in the World's 50 Best Restaurants
+- Is internationally recognised as a destination fine dining restaurant
+
+DO NOT include:
+- Casual restaurants, bars & grills, bistros, or chain restaurants
+- Restaurants with no chef pedigree or no international recognition
+- Generic local restaurants that happen to share a name with a fine dining restaurant
+- Anything not clearly described as a notable destination restaurant in the search results
+
 Only include restaurants that are clearly described in the results above.
-If no restaurant matches, return an empty array.
+If no restaurant meets these criteria, return an empty array — do not guess.
 
 Return a JSON object with a "restaurants" array. Each item must have exactly these fields:
 {
@@ -134,13 +146,16 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServerSupabase();
 
-  // 3. Upsert verified restaurants into DB
+  // 3. Upsert verified restaurants into DB (normalize name to title case to prevent case-variant duplicates)
+  const toTitleCase = (s: string) =>
+    s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+
   try {
     const { data } = await supabase
       .from("restaurants")
       .upsert(
         found.map((r) => ({
-          name: r.name,
+          name: toTitleCase(r.name.trim()),
           city: r.city,
           country: r.country,
           stars: Math.min(3, Math.max(0, Number(r.stars) || 0)),
