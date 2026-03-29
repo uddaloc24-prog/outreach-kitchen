@@ -136,7 +136,8 @@ export default function HomePage() {
         ) return false;
       }
       if (stars !== "all" && r.stars !== parseInt(stars)) return false;
-      if (region !== "all") {
+      // When searching by name, region filter is ignored — name search is global
+      if (!search && region !== "all") {
         const countries = REGION_TO_COUNTRIES[region] ?? [];
         if (!countries.includes(r.country)) return false;
       }
