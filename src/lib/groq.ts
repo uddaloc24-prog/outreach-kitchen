@@ -48,11 +48,22 @@ export async function callGroqText(
 }
 
 export function parseJsonResponse<T>(text: string): T {
-  const cleaned = text
+  const stripped = text
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```\s*$/, "")
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
     .trim();
-  return JSON.parse(cleaned) as T;
+
+  // Replace literal newlines/tabs inside JSON string values with their escape sequences.
+  // This handles Groq returning raw \n inside quoted strings when not in json_object mode.
+  const fixed = stripped.replace(/"((?:[^"\\]|\\.)*)"/gs, (_match, inner: string) => {
+    return `"${inner
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t")
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    }"`;
+  });
+
+  return JSON.parse(fixed) as T;
 }
