@@ -17,6 +17,26 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  async function extractPdfText(file: File): Promise<string> {
+    // Parse PDF in the browser so Node.js DOMMatrix issues don't apply
+    const { getDocument, GlobalWorkerOptions } = await import("pdfjs-dist");
+    // Use bundled worker via CDN to avoid Next.js bundler issues
+    GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${(await import("pdfjs-dist")).version}/build/pdf.worker.min.mjs`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await getDocument({ data: arrayBuffer }).promise;
+    const pages: string[] = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" ");
+      pages.push(pageText);
+    }
+    return pages.join("\n");
+  }
+
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       setError("Please upload a PDF file.");
@@ -27,12 +47,17 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      // Step 1: extract text in the browser (avoids Node.js DOMMatrix error)
+      const cv_text = await extractPdfText(file);
+      if (!cv_text || cv_text.trim().length < 50) {
+        throw new Error("Could not read text from this PDF. Try a text-based PDF rather than a scanned image.");
+      }
 
+      // Step 2: send raw text to server for Groq parsing
       const res = await fetch("/api/profile/upload", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cv_text }),
       });
 
       const data = await res.json();
