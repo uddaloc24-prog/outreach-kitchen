@@ -35,7 +35,7 @@ async function tavilySearch(query: string): Promise<TavilyResult[]> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: apiKey,
-        query: `${query} restaurant michelin fine dining`,
+        query: `${query} chef kitchen restaurant bakery pastry`,
         search_depth: "basic",
         max_results: 8,
         include_raw_content: false,
@@ -77,21 +77,24 @@ Here are real web search results:
 
 ${context}
 
-Extract ONLY world-class fine dining restaurants from these results that match the search query.
+Extract ONLY world-class culinary establishments from these results that match the search query.
 
-STRICT CRITERIA — only include a restaurant if it meets at least one:
+This tool is used by professional chefs applying for kitchen positions. Include any establishment where a serious chef would want to stage or work — including fine dining restaurants, pastry kitchens, bakeries, boulangeries, pâtisseries, and chocolatiers.
+
+STRICT CRITERIA — only include an establishment if it meets at least one:
 - Has Michelin stars (1, 2, or 3)
-- Is ranked in the World's 50 Best Restaurants
-- Is internationally recognised as a destination fine dining restaurant
+- Is ranked in the World's 50 Best Restaurants or World's 50 Best Pastry Shops
+- Is run by an internationally recognised chef or pastry chef (e.g. Cédric Grolet, Dominique Ansel, Pierre Hermé, Christophe Adam, Nina Métayer)
+- Is internationally renowned as a destination bakery, pâtisserie, boulangerie, or pastry kitchen
+- Is a notable fine dining restaurant with an internationally known kitchen team
 
 DO NOT include:
-- Casual restaurants, bars & grills, bistros, or chain restaurants
-- Restaurants with no chef pedigree or no international recognition
-- Generic local restaurants that happen to share a name with a fine dining restaurant
-- Anything not clearly described as a notable destination restaurant in the search results
+- Generic local bakeries, supermarket chains, or casual cafés with no international recognition
+- Restaurants or bakeries with no known chef or no culinary reputation beyond their local area
+- Anything not clearly described as a notable culinary destination in the search results
 
-Only include restaurants that are clearly described in the results above.
-If no restaurant meets these criteria, return an empty array — do not guess.
+Only include establishments clearly described in the results above.
+If no establishment meets these criteria, return an empty array — do not guess.
 
 Return a JSON object with a "restaurants" array. Each item must have exactly these fields:
 {
@@ -99,8 +102,8 @@ Return a JSON object with a "restaurants" array. Each item must have exactly the
   "city": "city where the restaurant is located",
   "country": "country where the restaurant is located",
   "stars": 0 (no Michelin star) or 1, 2, or 3 (Michelin stars — only if explicitly mentioned),
-  "head_chef": "head chef name if mentioned, otherwise empty string",
-  "cuisine_style": "cuisine style if mentioned, otherwise empty string",
+  "head_chef": "head chef or pastry chef name if mentioned, otherwise empty string",
+  "cuisine_style": "cuisine or establishment type (e.g. 'Pastry', 'Boulangerie', 'Pâtisserie', 'French fine dining') if mentioned, otherwise empty string",
   "website_url": "website URL from results if available, otherwise empty string",
   "careers_email": "careers or contact email if mentioned, otherwise empty string",
   "world_50_rank": integer if in World's 50 Best, otherwise null
