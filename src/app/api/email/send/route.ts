@@ -41,9 +41,14 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("user_profiles")
-    .select("name")
+    .select("name, user_type, applications_remaining")
     .eq("user_id", session.user.email)
     .single();
+
+  // Application limit gate for D2C chef users
+  if (profile?.user_type === "chef" && profile.applications_remaining === 0) {
+    return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
+  }
 
   try {
     const result = await sendEmail({
@@ -55,6 +60,14 @@ export async function POST(req: NextRequest) {
       user_email: session.user.email,
       chef_name: profile?.name ?? session.user.name ?? "",
     });
+
+    // Decrement applications_remaining for finite-quota chef users
+    if (profile?.user_type === "chef" && profile.applications_remaining !== null) {
+      await supabase
+        .from("user_profiles")
+        .update({ applications_remaining: profile.applications_remaining - 1 })
+        .eq("user_id", session.user.email);
+    }
 
     return NextResponse.json(result);
   } catch (err) {

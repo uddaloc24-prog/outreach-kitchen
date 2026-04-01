@@ -12,9 +12,10 @@ export async function GET() {
   const supabase = createServerSupabase();
   const userId = session.user.email;
 
-  const [{ count: total }, { data: logs }] = await Promise.all([
+  const [{ count: total }, { data: logs }, { data: profile }] = await Promise.all([
     supabase.from("restaurants").select("*", { count: "exact", head: true }),
     supabase.from("outreach_log").select("status").eq("user_id", userId),
+    supabase.from("user_profiles").select("user_type, applications_remaining").eq("user_id", userId).single(),
   ]);
 
   const counts = (logs ?? []).reduce(
@@ -32,5 +33,7 @@ export async function GET() {
     followup_due: counts["followup_due"] ?? 0,
     draft_ready: counts["draft_ready"] ?? 0,
     researching: counts["researching"] ?? 0,
+    user_type: profile?.user_type ?? "institute",
+    applications_remaining: profile?.applications_remaining ?? null,
   });
 }

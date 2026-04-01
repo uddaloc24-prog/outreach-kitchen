@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { DashboardStats } from "@/types";
 
 interface DashboardStatsProps {
@@ -7,11 +8,36 @@ interface DashboardStatsProps {
 }
 
 export function DashboardStatsRow({ stats }: DashboardStatsProps) {
+  const isChef = stats.user_type === "chef";
+  const lowApps =
+    isChef &&
+    stats.applications_remaining !== null &&
+    stats.applications_remaining < 5;
+
+  const lastTile = isChef
+    ? {
+        label: "Applications",
+        value:
+          stats.applications_remaining === null
+            ? "∞"
+            : String(stats.applications_remaining),
+        color: lowApps ? "text-rust" : "text-ink",
+        extra: (
+          <Link
+            href="/upgrade"
+            className="text-[11px] tracking-wide text-muted hover:text-ink transition-colors mt-1 block"
+          >
+            Upgrade plan →
+          </Link>
+        ),
+      }
+    : { label: "Draft Ready", value: String(stats.draft_ready), color: "text-muted", extra: null };
+
   const tiles = [
-    { label: "Emails Sent", value: stats.sent, color: "text-ink" },
-    { label: "Replied", value: stats.replied, color: "text-success-green" },
-    { label: "Follow-ups Due", value: stats.followup_due, color: "text-rust" },
-    { label: "Draft Ready", value: stats.draft_ready, color: "text-muted" },
+    { label: "Emails Sent", value: String(stats.sent), color: "text-ink", extra: null },
+    { label: "Replied", value: String(stats.replied), color: "text-success-green", extra: null },
+    { label: "Follow-ups Due", value: String(stats.followup_due), color: "text-rust", extra: null },
+    lastTile,
   ];
 
   return (
@@ -26,6 +52,7 @@ export function DashboardStatsRow({ stats }: DashboardStatsProps) {
           <p className={`font-display text-[48px] font-light mt-1 ${tile.color}`}>
             {tile.value}
           </p>
+          {tile.extra}
         </div>
       ))}
     </div>

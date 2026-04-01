@@ -74,6 +74,8 @@ export default function DashboardPage() {
     followup_due: 0,
     draft_ready: 0,
     researching: 0,
+    user_type: null,
+    applications_remaining: null,
   });
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);

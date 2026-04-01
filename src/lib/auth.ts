@@ -29,21 +29,35 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user }) {
-      // Invite-only: reject sign-in if email is not in allowed_users table
       if (!user.email) return false;
+      const supabase = createServerSupabase();
+
+      // Path 1: institute user (existing behaviour — always unlimited)
       try {
-        const supabase = createServerSupabase();
-        const { data } = await supabase
+        const { data: allowed } = await supabase
           .from("allowed_users")
           .select("email")
           .eq("email", user.email)
           .single();
-        if (!data) return "/auth/error?error=AccessDenied";
+        if (allowed) return true;
       } catch {
-        // If table doesn't exist yet (pre-migration), block sign-in to be safe
-        return "/auth/error?error=AccessDenied";
+        // table may not exist yet in dev — fall through to paid check
       }
-      return true;
+
+      // Path 2: paid chef user (D2C self-serve)
+      try {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("plan")
+          .eq("user_id", user.email)
+          .single();
+        if (profile?.plan) return true;
+      } catch {
+        // no profile row — new user
+      }
+
+      // Neither allowed nor paid — send to pricing page
+      return "/pricing";
     },
 
     async jwt({ token, account, user }) {

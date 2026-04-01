@@ -57,6 +57,18 @@ export function TopBar() {
             </Link>
           )}
 
+          {!session && (
+            <Link
+              href="/pricing"
+              className={cn(
+                "text-[13px] tracking-wide transition-colors",
+                pathname === "/pricing" ? "text-ink" : "text-muted hover:text-ink"
+              )}
+            >
+              Pricing
+            </Link>
+          )}
+
           {status === "loading" ? null : session ? (
             <button
               onClick={() => signOut()}
