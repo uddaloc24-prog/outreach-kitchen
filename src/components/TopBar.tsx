@@ -78,7 +78,7 @@ export function TopBar() {
             </button>
           ) : (
             <button
-              onClick={() => signIn("google")}
+              onClick={() => signIn("google", { callbackUrl: "/" })}
               className="text-[13px] border border-warm-border px-4 py-2 text-ink hover:border-ink transition-colors"
             >
               Sign in with Google

@@ -170,7 +170,7 @@ export default function HomePage() {
             Sign in with Google to connect your Gmail and begin.
           </p>
           <button
-            onClick={() => signIn("google")}
+            onClick={() => signIn("google", { callbackUrl: "/" })}
             className="mt-8 border border-ink px-8 py-3 text-body text-ink hover:bg-ink hover:text-parchment transition-colors"
           >
             Sign in with Google
