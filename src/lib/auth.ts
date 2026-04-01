@@ -54,7 +54,7 @@ export const authOptions: NextAuthOptions = {
       // ignoreDuplicates: true leaves paid/existing profiles untouched.
       try {
         await supabase.from("user_profiles").upsert(
-          { user_id: user.email, user_type: "free_trial", applications_remaining: 3 },
+          { user_id: user.email, user_type: "free_trial", applications_remaining: 1 },
           { onConflict: "user_id", ignoreDuplicates: true }
         );
       } catch {
@@ -121,6 +121,18 @@ export const authOptions: NextAuthOptions = {
       session.accessToken = token.accessToken;
       session.error = token.error;
       return session;
+    },
+
+    // After sign-in, always land on the home page — never on /pricing or /upgrade.
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith(baseUrl)) {
+        const path = url.slice(baseUrl.length);
+        if (path.startsWith("/pricing") || path.startsWith("/upgrade")) {
+          return baseUrl;
+        }
+        return url;
+      }
+      return baseUrl;
     },
   },
 };

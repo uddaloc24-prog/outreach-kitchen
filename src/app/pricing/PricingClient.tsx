@@ -107,7 +107,7 @@ export function PricingClient({ isInstituteUser }: PricingClientProps) {
         {hitLimit && !isInstituteUser && (
           <div className="border border-warm-border p-5 text-center mb-8">
             <p className="text-body text-ink">
-              You&apos;ve used your 3 free applications. Choose a plan to keep going.
+              You&apos;ve used your free application. Choose a plan to keep sending.
             </p>
           </div>
         )}
