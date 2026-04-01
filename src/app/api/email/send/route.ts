@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
 
   // Application limit gate — blocks free_trial and chef users at 0 remaining.
   // Institute users have applications_remaining = null so they're never blocked.
-  if (profile?.applications_remaining === 0) {
+  // No profile row at all = treat as limit reached (migration may not have run yet).
+  if (!profile || profile.applications_remaining === 0) {
     return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
   }
 
