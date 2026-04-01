@@ -7,6 +7,7 @@ import { FilterBar } from "@/components/FilterBar";
 import { RestaurantTable } from "@/components/RestaurantTable";
 import { ResearchPanel } from "@/components/ResearchPanel";
 import { CVUploadModal } from "@/components/CVUploadModal";
+import { FreeTrialModal } from "@/components/FreeTrialModal";
 import { Loader2 } from "lucide-react";
 import type {
   RestaurantWithOutreach,
@@ -53,6 +54,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<RestaurantWithOutreach | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
+  const [showFreeTrial, setShowFreeTrial] = useState(false);
   const [aiSearching, setAiSearching] = useState(false);
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -77,7 +79,15 @@ export default function HomePage() {
     try {
       const res = await fetch("/api/profile");
       const data = await res.json();
-      setUserProfile(data.profile ?? null);
+      const profile = data.profile ?? null;
+      setUserProfile(profile);
+      // Show free trial welcome modal once per session
+      if (
+        profile?.user_type === "free_trial" &&
+        !sessionStorage.getItem("free_trial_dismissed")
+      ) {
+        setShowFreeTrial(true);
+      }
     } catch {
       setUserProfile(null);
     }
@@ -183,6 +193,16 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-parchment">
       <TopBar />
+
+      {/* Free trial welcome modal */}
+      {showFreeTrial && (
+        <FreeTrialModal
+          onContinue={() => {
+            sessionStorage.setItem("free_trial_dismissed", "1");
+            setShowFreeTrial(false);
+          }}
+        />
+      )}
 
       {/* CV upload modal — shown if profile not set up */}
       {userProfile === null && (

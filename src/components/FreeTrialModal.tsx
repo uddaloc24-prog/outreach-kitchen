@@ -1,0 +1,144 @@
+"use client";
+
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
+
+const PLANS = [
+  {
+    key: "starter",
+    name: "Starter",
+    price: "$29",
+    apps: "30 applications",
+    features: ["30 personalised cover emails", "AI research brief per restaurant", "Gmail send via your own account", "Dashboard & reply tracking"],
+    highlight: false,
+  },
+  {
+    key: "pro",
+    name: "Pro",
+    price: "$49",
+    apps: "50 applications",
+    features: ["50 personalised cover emails", "AI research brief per restaurant", "Gmail send via your own account", "Dashboard & reply tracking", "Follow-up reminders at 21 days"],
+    highlight: true,
+  },
+  {
+    key: "unlimited",
+    name: "Unlimited",
+    price: "$79",
+    apps: "Unlimited applications",
+    features: ["Unlimited personalised cover emails", "AI research brief per restaurant", "Gmail send via your own account", "Dashboard & reply tracking", "Follow-up reminders at 21 days", "Search & add any kitchen worldwide"],
+    highlight: false,
+  },
+];
+
+interface FreeTrialModalProps {
+  onContinue: () => void;
+}
+
+export function FreeTrialModal({ onContinue }: FreeTrialModalProps) {
+  const [loading, setLoading] = useState<string | null>(null);
+
+  async function handleBuy(planKey: string) {
+    setLoading(planKey);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planKey }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error ?? "Something went wrong");
+        setLoading(null);
+      }
+    } catch {
+      alert("Something went wrong");
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-ink/70 flex items-center justify-center p-6 overflow-y-auto">
+      <div className="bg-parchment w-full max-w-4xl border border-warm-border shadow-panel my-auto">
+        {/* Header */}
+        <div className="px-10 pt-10 pb-6 border-b border-warm-border text-center">
+          <p className="text-[11px] tracking-[0.2em] uppercase text-muted mb-2">Free Trial</p>
+          <h2 className="font-display text-[36px] font-light text-ink leading-tight">
+            You have 1 free application
+          </h2>
+          <p className="text-body text-muted mt-3 max-w-lg mx-auto">
+            Send one personalised cover email to any kitchen — no payment needed.
+            Upgrade any time to send to more.
+          </p>
+        </div>
+
+        {/* Plans */}
+        <div className="px-10 py-8">
+          <p className="text-[11px] tracking-[0.2em] uppercase text-muted text-center mb-6">
+            Or choose a plan to unlock more
+          </p>
+          <div className="grid grid-cols-3 gap-0 border border-warm-border">
+            {PLANS.map((plan, i) => (
+              <div
+                key={plan.key}
+                className={`p-8 flex flex-col ${i < PLANS.length - 1 ? "border-r border-warm-border" : ""} ${plan.highlight ? "bg-ink text-parchment" : ""}`}
+              >
+                {plan.highlight && (
+                  <p className="text-[10px] tracking-[0.2em] uppercase text-parchment/60 mb-3">
+                    Most popular
+                  </p>
+                )}
+                <p className={`text-[12px] tracking-widest uppercase ${plan.highlight ? "text-parchment/70" : "text-muted"}`}>
+                  {plan.name}
+                </p>
+                <p className={`font-display text-[52px] font-light mt-1 leading-none ${plan.highlight ? "text-parchment" : "text-ink"}`}>
+                  {plan.price}
+                </p>
+                <p className={`text-[12px] mt-1 ${plan.highlight ? "text-parchment/70" : "text-muted"}`}>
+                  {plan.apps}
+                </p>
+                <ul className="mt-6 space-y-2 flex-1">
+                  {plan.features.map((f) => (
+                    <li key={f} className={`text-[12px] flex items-start gap-2 ${plan.highlight ? "text-parchment/80" : "text-muted"}`}>
+                      <span className="mt-0.5 shrink-0">—</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => handleBuy(plan.key)}
+                  disabled={loading !== null}
+                  className={`mt-8 w-full py-3 text-[12px] tracking-wide transition-colors disabled:opacity-50 ${
+                    plan.highlight
+                      ? "bg-parchment text-ink hover:bg-parchment/90"
+                      : "border border-ink text-ink hover:bg-ink hover:text-parchment"
+                  }`}
+                >
+                  {loading === plan.key ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 size={12} className="animate-spin" />
+                      Redirecting…
+                    </span>
+                  ) : (
+                    `Buy ${plan.name}`
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Continue free */}
+        <div className="px-10 pb-10 text-center">
+          <button
+            onClick={onContinue}
+            className="text-[13px] text-muted hover:text-ink transition-colors underline underline-offset-4"
+          >
+            Continue with 1 free email →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
