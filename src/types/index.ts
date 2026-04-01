@@ -75,7 +75,7 @@ export interface DashboardStats {
   followup_due: number;
   draft_ready: number;
   researching: number;
-  user_type: "institute" | "chef" | null;
+  user_type: "institute" | "chef" | "free_trial" | null;
   applications_remaining: number | null;
 }
 

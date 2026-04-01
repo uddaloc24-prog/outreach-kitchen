@@ -8,15 +8,17 @@ interface DashboardStatsProps {
 }
 
 export function DashboardStatsRow({ stats }: DashboardStatsProps) {
-  const isChef = stats.user_type === "chef";
-  const lowApps =
-    isChef &&
-    stats.applications_remaining !== null &&
-    stats.applications_remaining < 5;
+  const showQuota = stats.user_type === "chef" || stats.user_type === "free_trial";
+  const isFreeTrialUser = stats.user_type === "free_trial";
 
-  const lastTile = isChef
+  const lowApps =
+    showQuota &&
+    stats.applications_remaining !== null &&
+    stats.applications_remaining < 2;
+
+  const lastTile = showQuota
     ? {
-        label: "Applications",
+        label: isFreeTrialUser ? "Free Emails" : "Applications",
         value:
           stats.applications_remaining === null
             ? "∞"
@@ -24,10 +26,10 @@ export function DashboardStatsRow({ stats }: DashboardStatsProps) {
         color: lowApps ? "text-rust" : "text-ink",
         extra: (
           <Link
-            href="/upgrade"
+            href={isFreeTrialUser ? "/pricing" : "/upgrade"}
             className="text-[11px] tracking-wide text-muted hover:text-ink transition-colors mt-1 block"
           >
-            Upgrade plan →
+            {isFreeTrialUser ? "Get full access →" : "Upgrade plan →"}
           </Link>
         ),
       }
@@ -46,7 +48,6 @@ export function DashboardStatsRow({ stats }: DashboardStatsProps) {
         <div
           key={tile.label}
           className={`px-8 py-6 ${i < tiles.length - 1 ? "border-r border-warm-border" : ""}`}
-          style={{ animationDelay: `${i * 0.1}s` }}
         >
           <p className="text-label text-muted">{tile.label}</p>
           <p className={`font-display text-[48px] font-light mt-1 ${tile.color}`}>

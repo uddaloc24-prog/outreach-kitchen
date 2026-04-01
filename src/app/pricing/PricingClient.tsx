@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 
 interface Plan {
@@ -63,6 +64,8 @@ interface PricingClientProps {
 }
 
 export function PricingClient({ isInstituteUser }: PricingClientProps) {
+  const searchParams = useSearchParams();
+  const hitLimit = searchParams.get("reason") === "limit";
   const [loading, setLoading] = useState<string | null>(null);
 
   async function handleBuy(planKey: string) {
@@ -100,6 +103,14 @@ export function PricingClient({ isInstituteUser }: PricingClientProps) {
             under your name, from your Gmail account.
           </p>
         </div>
+
+        {hitLimit && !isInstituteUser && (
+          <div className="border border-warm-border p-5 text-center mb-8">
+            <p className="text-body text-ink">
+              You&apos;ve used your 3 free applications. Choose a plan to keep going.
+            </p>
+          </div>
+        )}
 
         {isInstituteUser ? (
           <div className="border border-warm-border p-10 text-center max-w-md mx-auto">

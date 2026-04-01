@@ -32,32 +32,36 @@ export const authOptions: NextAuthOptions = {
       if (!user.email) return false;
       const supabase = createServerSupabase();
 
-      // Path 1: institute user (existing behaviour — always unlimited)
+      // Institute users: force unlimited access on every sign-in (overwrites any stale row)
       try {
         const { data: allowed } = await supabase
           .from("allowed_users")
           .select("email")
           .eq("email", user.email)
           .single();
-        if (allowed) return true;
+        if (allowed) {
+          await supabase.from("user_profiles").upsert(
+            { user_id: user.email, user_type: "institute", applications_remaining: null },
+            { onConflict: "user_id" }
+          );
+          return true;
+        }
       } catch {
-        // table may not exist yet in dev — fall through to paid check
+        // table may not exist yet in dev
       }
 
-      // Path 2: paid chef user (D2C self-serve)
+      // Everyone else: create a free trial profile if they don't have one yet.
+      // ignoreDuplicates: true leaves paid/existing profiles untouched.
       try {
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("plan")
-          .eq("user_id", user.email)
-          .single();
-        if (profile?.plan) return true;
+        await supabase.from("user_profiles").upsert(
+          { user_id: user.email, user_type: "free_trial", applications_remaining: 3 },
+          { onConflict: "user_id", ignoreDuplicates: true }
+        );
       } catch {
-        // no profile row — new user
+        // non-fatal — they can still sign in
       }
 
-      // Neither allowed nor paid — send to pricing page
-      return "/pricing";
+      return true; // everyone gets in
     },
 
     async jwt({ token, account, user }) {

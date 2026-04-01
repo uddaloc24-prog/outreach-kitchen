@@ -45,8 +45,9 @@ export async function POST(req: NextRequest) {
     .eq("user_id", session.user.email)
     .single();
 
-  // Application limit gate for D2C chef users
-  if (profile?.user_type === "chef" && profile.applications_remaining === 0) {
+  // Application limit gate — blocks free_trial and chef users at 0 remaining.
+  // Institute users have applications_remaining = null so they're never blocked.
+  if (profile?.applications_remaining === 0) {
     return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
   }
 
@@ -61,8 +62,8 @@ export async function POST(req: NextRequest) {
       chef_name: profile?.name ?? session.user.name ?? "",
     });
 
-    // Decrement applications_remaining for finite-quota chef users
-    if (profile?.user_type === "chef" && profile.applications_remaining !== null) {
+    // Decrement applications_remaining for any finite-quota user (free_trial or chef)
+    if (profile && profile.applications_remaining !== null) {
       await supabase
         .from("user_profiles")
         .update({ applications_remaining: profile.applications_remaining - 1 })

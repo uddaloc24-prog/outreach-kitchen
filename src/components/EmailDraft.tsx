@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ export function EmailDraft({
   onSent,
 }: EmailDraftProps) {
   const [body, setBody] = useState(email.body);
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -70,7 +72,11 @@ export function EmailDraft({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json() as { error?: string };
+        if (res.status === 402) {
+          router.push("/pricing?reason=limit");
+          return;
+        }
         throw new Error(err.error || "Send failed");
       }
 

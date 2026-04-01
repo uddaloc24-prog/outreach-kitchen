@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
@@ -18,5 +19,9 @@ export default async function PricingPage() {
     if (data) isInstituteUser = true;
   }
 
-  return <PricingClient isInstituteUser={isInstituteUser} />;
+  return (
+    <Suspense>
+      <PricingClient isInstituteUser={isInstituteUser} />
+    </Suspense>
+  );
 }
