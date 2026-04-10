@@ -39,7 +39,22 @@ export async function sendEmail(input: {
     attachment = { filename, data: Buffer.from(arrayBuffer), mimeType: "application/pdf" };
   }
 
-  const raw = buildRfc2822Email(to_email, subject, body, senderEmail, attachment);
+  // Append public profile link if the chef has a slug
+  const { data: chefProfile } = await supabase
+    .from("user_profiles")
+    .select("slug")
+    .eq("user_id", user_email)
+    .single();
+
+  let bodyWithProfile = body;
+  if (chefProfile?.slug) {
+    const baseUrl =
+      process.env.NEXTAUTH_URL || "https://outreach-kitchen.vercel.app";
+    const profileUrl = `${baseUrl}/chef/${chefProfile.slug}`;
+    bodyWithProfile = `${body}\n\nView my full profile: ${profileUrl}`;
+  }
+
+  const raw = buildRfc2822Email(to_email, subject, bodyWithProfile, senderEmail, attachment);
 
   const sendRes = await gmail.users.messages.send({
     userId: "me",

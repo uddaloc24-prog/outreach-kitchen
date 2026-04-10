@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { generateSlug } from "@/lib/slug";
 import Groq from "groq-sdk";
+import { PDFParse } from "pdf-parse";
 import type { ParsedProfile } from "@/types";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -69,8 +71,6 @@ export async function POST(req: NextRequest) {
     }
     pdfBuffer = Buffer.from(await file.arrayBuffer());
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { PDFParse } = require("pdf-parse");
       const parser = new PDFParse({ data: pdfBuffer });
       const result = await parser.getText();
       cv_text = result.text;
@@ -132,6 +132,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Preserve existing slug; generate one if this is the first upload
+  const { data: existing } = await supabase
+    .from("user_profiles")
+    .select("slug")
+    .eq("user_id", session.user.email)
+    .single();
+
+  const slug =
+    existing?.slug ||
+    generateSlug(parsed.name || session.user.name || session.user.email);
+
   const { data, error } = await supabase
     .from("user_profiles")
     .upsert(
@@ -142,6 +153,8 @@ export async function POST(req: NextRequest) {
         phone: parsed.phone || "",
         raw_cv_text: cv_text,
         parsed_profile: parsed,
+        slug,
+        avatar_url: session.user.image || null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
