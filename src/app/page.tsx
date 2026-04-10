@@ -8,6 +8,7 @@ import { RestaurantTable } from "@/components/RestaurantTable";
 import { ResearchPanel } from "@/components/ResearchPanel";
 import { CVUploadModal } from "@/components/CVUploadModal";
 import { FreeTrialModal } from "@/components/FreeTrialModal";
+import { OnboardingView } from "@/components/OnboardingView";
 import { Loader2 } from "lucide-react";
 import type {
   RestaurantWithOutreach,
@@ -55,6 +56,7 @@ export default function HomePage() {
   const [selected, setSelected] = useState<RestaurantWithOutreach | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
   const [showFreeTrial, setShowFreeTrial] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [aiSearching, setAiSearching] = useState(false);
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -81,15 +83,36 @@ export default function HomePage() {
       const data = await res.json();
       const profile = data.profile ?? null;
       setUserProfile(profile);
-      // Show free trial welcome modal once per session
-      if (
-        profile?.user_type === "free_trial" &&
-        !sessionStorage.getItem("free_trial_dismissed")
-      ) {
-        setShowFreeTrial(true);
+
+      // Employer → redirect to employer dashboard
+      if (profile?.user_type === "employer") {
+        window.location.href = "/employer";
+        return;
+      }
+
+      // New user who hasn't chosen a role → redirect to onboard
+      if (profile && !profile.has_chosen_role) {
+        window.location.href = "/onboard";
+        return;
+      }
+
+      if (profile?.user_type === "free_trial") {
+        if (!sessionStorage.getItem("onboarding_complete")) {
+          setShowOnboarding(true);
+        } else if (!sessionStorage.getItem("free_trial_dismissed")) {
+          setShowFreeTrial(true);
+        }
       }
     } catch {
       setUserProfile(null);
+    }
+  }
+
+  function handleOnboardingComplete() {
+    sessionStorage.setItem("onboarding_complete", "1");
+    setShowOnboarding(false);
+    if (!sessionStorage.getItem("free_trial_dismissed")) {
+      setShowFreeTrial(true);
     }
   }
 
@@ -188,6 +211,11 @@ export default function HomePage() {
         </div>
       </div>
     );
+  }
+
+  // New free_trial user who hasn't seen onboarding yet
+  if (showOnboarding) {
+    return <OnboardingView onComplete={handleOnboardingComplete} />;
   }
 
   return (
