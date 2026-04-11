@@ -48,12 +48,6 @@ export function TopBar() {
           <Link href="/" className="font-display text-[18px] sm:text-[24px] font-light italic text-ink shrink-0">
             Kitchen Applications
           </Link>
-          {session?.user?.name && (
-            <span className="hidden sm:inline text-[12px] tracking-widest uppercase text-muted truncate">
-              <span className="text-warm-border mx-1">·</span>
-              {session.user.name}
-            </span>
-          )}
         </div>
 
         {/* Desktop nav */}

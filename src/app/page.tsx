@@ -73,7 +73,7 @@ export default function HomePage() {
       const data = await res.json();
       setRestaurants(data.restaurants ?? []);
     } catch {
-      console.error("[page] Failed to fetch restaurants");
+      // fetch failed — restaurants stay empty
     }
   }
 

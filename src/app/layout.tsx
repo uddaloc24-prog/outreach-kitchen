@@ -1,11 +1,52 @@
 import type { Metadata } from "next";
+import { Cormorant_Garamond, Karla } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "sonner";
+import { JsonLd } from "@/components/JsonLd";
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["300", "400", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-cormorant",
+  display: "swap",
+});
+
+const karla = Karla({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-karla",
+  display: "swap",
+});
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://outreach-kitchen.vercel.app";
 
 export const metadata: Metadata = {
-  title: "Kitchen Applications — Uddaloc Ghosh",
-  description: "Restaurant outreach machine for Michelin-starred kitchen applications.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Kitchen Applications — AI-Powered Michelin Restaurant Outreach",
+    template: "%s — Kitchen Applications",
+  },
+  description:
+    "Apply to 40+ Michelin-starred kitchens with AI-researched cover emails sent from your Gmail. Track replies, generate follow-ups, and land your dream stage.",
+  openGraph: {
+    type: "website",
+    siteName: "Kitchen Applications",
+    title: "Kitchen Applications — AI-Powered Michelin Restaurant Outreach",
+    description:
+      "Apply to 40+ Michelin-starred kitchens with AI-researched cover emails sent from your Gmail. Track replies, generate follow-ups, and land your dream stage.",
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Kitchen Applications — AI-Powered Michelin Restaurant Outreach",
+    description:
+      "Apply to 40+ Michelin-starred kitchens with AI-researched cover emails. Track replies and land your dream stage.",
+  },
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -14,16 +55,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Karla:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="en" className={`${cormorant.variable} ${karla.variable}`}>
       <body className="bg-parchment text-ink font-body">
+        <JsonLd />
         <Providers>{children}</Providers>
         <Toaster
           position="bottom-right"

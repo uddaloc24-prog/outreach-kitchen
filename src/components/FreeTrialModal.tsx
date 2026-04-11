@@ -59,30 +59,30 @@ export function FreeTrialModal({ onContinue }: FreeTrialModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-ink/70 flex items-center justify-center p-6 overflow-y-auto">
-      <div className="bg-parchment w-full max-w-4xl border border-warm-border shadow-panel my-auto">
+    <div className="fixed inset-0 z-50 bg-ink/70 flex items-end sm:items-center justify-center sm:p-6 overflow-y-auto">
+      <div className="bg-parchment w-full sm:max-w-4xl border border-warm-border shadow-panel my-auto max-h-[95vh] overflow-y-auto rounded-t-xl sm:rounded-none">
         {/* Header */}
-        <div className="px-10 pt-10 pb-6 border-b border-warm-border text-center">
+        <div className="px-5 sm:px-10 pt-6 sm:pt-10 pb-5 sm:pb-6 border-b border-warm-border text-center">
           <p className="text-[11px] tracking-[0.2em] uppercase text-muted mb-2">Free Trial</p>
-          <h2 className="font-display text-[36px] font-light text-ink leading-tight">
+          <h2 className="font-display text-[24px] sm:text-[36px] font-light text-ink leading-tight">
             You have 1 free application
           </h2>
-          <p className="text-body text-muted mt-3 max-w-lg mx-auto">
+          <p className="text-[13px] sm:text-body text-muted mt-3 max-w-lg mx-auto">
             Send one personalised cover email to any kitchen — no payment needed.
             Upgrade any time to send to more.
           </p>
         </div>
 
         {/* Plans */}
-        <div className="px-10 py-8">
+        <div className="px-4 sm:px-10 py-6 sm:py-8">
           <p className="text-[11px] tracking-[0.2em] uppercase text-muted text-center mb-6">
             Or choose a plan to unlock more
           </p>
-          <div className="grid grid-cols-3 gap-0 border border-warm-border">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 border border-warm-border">
             {PLANS.map((plan, i) => (
               <div
                 key={plan.key}
-                className={`p-8 flex flex-col ${i < PLANS.length - 1 ? "border-r border-warm-border" : ""} ${plan.highlight ? "bg-ink text-parchment" : ""}`}
+                className={`p-5 sm:p-8 flex flex-col ${i < PLANS.length - 1 ? "border-b sm:border-b-0 sm:border-r border-warm-border" : ""} ${plan.highlight ? "bg-ink text-parchment" : ""}`}
               >
                 {plan.highlight && (
                   <p className="text-[10px] tracking-[0.2em] uppercase text-parchment/60 mb-3">
@@ -130,7 +130,7 @@ export function FreeTrialModal({ onContinue }: FreeTrialModalProps) {
         </div>
 
         {/* Continue free */}
-        <div className="px-10 pb-10 text-center">
+        <div className="px-5 sm:px-10 pb-8 sm:pb-10 text-center">
           <button
             onClick={onContinue}
             className="text-[13px] text-muted hover:text-ink transition-colors underline underline-offset-4"

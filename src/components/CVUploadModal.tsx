@@ -11,25 +11,6 @@ interface CVUploadModalProps {
 type Step = "input" | "parsing" | "review" | "error";
 type InputMode = "upload" | "paste";
 
-async function extractPdfText(file: File): Promise<string> {
-  const { getDocument, GlobalWorkerOptions } = await import("pdfjs-dist");
-  GlobalWorkerOptions.workerSrc =
-    "https://unpkg.com/pdfjs-dist@5.5.207/build/pdf.worker.min.mjs";
-
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await getDocument({ data: arrayBuffer }).promise;
-  const pages: string[] = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ");
-    pages.push(pageText);
-  }
-  return pages.join("\n");
-}
-
 export function CVUploadModal({ onComplete }: CVUploadModalProps) {
   const [step, setStep] = useState<Step>("input");
   const [mode, setMode] = useState<InputMode>("upload");
@@ -62,6 +43,7 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
     }
   }
 
+  // Send raw PDF to server as FormData — server-side parsing works on all devices
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       setError("Please upload a PDF file.");
@@ -70,13 +52,16 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
     setStep("parsing");
     setError(null);
     try {
-      const text = await extractPdfText(file);
-      if (!text || text.trim().length < 50) {
-        throw new Error(
-          "Could not read text from this PDF. Try a text-based PDF (not a scanned image), or switch to paste mode."
-        );
-      }
-      await submitText(text);
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/profile/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setProfile(data.profile);
+      setStep("review");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setStep("input");
@@ -100,24 +85,24 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-ink/60 flex items-center justify-center p-6">
-      <div className="bg-parchment w-full max-w-lg border border-warm-border shadow-panel">
+    <div className="fixed inset-0 z-50 bg-ink/60 flex items-end sm:items-center justify-center sm:p-6">
+      <div className="bg-parchment w-full sm:max-w-lg border border-warm-border shadow-panel max-h-[90vh] overflow-y-auto rounded-t-xl sm:rounded-none">
         {/* Header */}
-        <div className="px-8 pt-8 pb-6 border-b border-warm-border">
-          <h2 className="font-display text-h1 text-ink">Set up your profile</h2>
-          <p className="text-body text-muted mt-2">
+        <div className="px-5 sm:px-8 pt-6 sm:pt-8 pb-5 sm:pb-6 border-b border-warm-border">
+          <h2 className="font-display text-[22px] sm:text-h1 text-ink">Set up your profile</h2>
+          <p className="text-[13px] sm:text-body text-muted mt-2">
             Your CV is parsed once and stored. All emails are generated from it.
           </p>
         </div>
 
-        <div className="px-8 py-6">
+        <div className="px-5 sm:px-8 py-5 sm:py-6">
           {(step === "input" || step === "error") && (
             <div className="space-y-4">
               {/* Mode tabs */}
               <div className="flex border border-warm-border">
                 <button
                   onClick={() => { setMode("upload"); setError(null); }}
-                  className={`flex-1 py-2 text-small uppercase tracking-widest transition-colors ${
+                  className={`flex-1 py-3 text-small uppercase tracking-widest transition-colors ${
                     mode === "upload"
                       ? "bg-ink text-parchment"
                       : "text-muted hover:text-ink"
@@ -127,7 +112,7 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
                 </button>
                 <button
                   onClick={() => { setMode("paste"); setError(null); }}
-                  className={`flex-1 py-2 text-small uppercase tracking-widest transition-colors ${
+                  className={`flex-1 py-3 text-small uppercase tracking-widest transition-colors ${
                     mode === "paste"
                       ? "bg-ink text-parchment"
                       : "text-muted hover:text-ink"

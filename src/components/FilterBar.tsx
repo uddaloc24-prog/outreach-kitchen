@@ -27,9 +27,9 @@ export function FilterBar({
   onStatusChange,
 }: FilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 py-4 px-8 border-b border-warm-border bg-parchment">
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3 py-3 sm:py-4 px-4 sm:px-8 border-b border-warm-border bg-parchment">
       {/* Search */}
-      <div className="relative flex-1 min-w-[200px] max-w-[280px]">
+      <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-[280px]">
         <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
         <Input
           placeholder="Search restaurant or chef…"
@@ -40,7 +40,7 @@ export function FilterBar({
       </div>
 
       {/* Stars */}
-      <div className="w-[140px]">
+      <div className="w-[calc(50%-4px)] sm:w-[140px]">
         <Select value={stars} onValueChange={(v) => onStarsChange(v as StarFilter)}>
           <SelectTrigger className="text-small">
             <SelectValue placeholder="All Stars" />
@@ -56,7 +56,7 @@ export function FilterBar({
       </div>
 
       {/* Region */}
-      <div className="w-[180px]">
+      <div className="w-[calc(50%-4px)] sm:w-[180px]">
         <Select value={region} onValueChange={(v) => onRegionChange(v as RegionFilter)}>
           <SelectTrigger className="text-small">
             <SelectValue placeholder="All Regions" />
@@ -73,7 +73,7 @@ export function FilterBar({
       </div>
 
       {/* Status */}
-      <div className="w-[180px]">
+      <div className="w-full sm:w-[180px]">
         <Select value={status} onValueChange={(v) => onStatusChange(v as StatusFilter)}>
           <SelectTrigger className="text-small">
             <SelectValue placeholder="All Status" />
