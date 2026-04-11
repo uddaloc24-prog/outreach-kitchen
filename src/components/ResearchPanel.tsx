@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { X, Loader2, Globe, Brain, CheckCircle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -19,6 +20,7 @@ type Step = "idle" | "scraping" | "briefing" | "done" | "error";
 type StepError = string | null;
 
 export function ResearchPanel({ restaurant, onClose, onStatusChange }: ResearchPanelProps) {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("idle");
   const [stepError, setStepError] = useState<StepError>(null);
   const [brief, setBrief] = useState<ResearchBrief | null>(null);
@@ -99,6 +101,10 @@ export function ResearchPanel({ restaurant, onClose, onStatusChange }: ResearchP
       });
 
       if (!res.ok) {
+        if (res.status === 402) {
+          router.push("/pricing?reason=limit");
+          return;
+        }
         const err = await res.json();
         throw new Error(err.error || "Research failed");
       }
@@ -187,6 +193,10 @@ export function ResearchPanel({ restaurant, onClose, onStatusChange }: ResearchP
       });
 
       if (!res.ok) {
+        if (res.status === 402) {
+          router.push("/pricing?reason=limit");
+          return;
+        }
         const err = await res.json();
         throw new Error(err.error || "Email generation failed");
       }

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   const { data: profileRow } = await supabase
     .from("user_profiles")
-    .select("parsed_profile")
+    .select("parsed_profile, user_type, applications_remaining")
     .eq("user_id", userId)
     .single();
 
@@ -39,6 +39,11 @@ export async function POST(req: NextRequest) {
       { error: "Upload your CV first before researching a restaurant" },
       { status: 400 }
     );
+  }
+
+  // Quota gate — block users with no applications remaining
+  if (profileRow.applications_remaining !== null && profileRow.applications_remaining <= 0) {
+    return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
   }
 
   const userProfile = profileRow.parsed_profile as ParsedProfile;

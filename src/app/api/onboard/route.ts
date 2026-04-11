@@ -22,9 +22,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
-  const user_type = role === "employer" ? "employer" : "free_trial";
-
   const supabase = createServerSupabase();
+
+  // Check current profile to avoid downgrading paid/institute users
+  const { data: existing } = await supabase
+    .from("user_profiles")
+    .select("user_type")
+    .eq("user_id", session.user.email)
+    .single();
+
+  const preserveType = existing?.user_type === "institute" || existing?.user_type === "chef";
+  const user_type = role === "employer" ? "employer" : preserveType ? existing.user_type : "free_trial";
+
   const { error } = await supabase
     .from("user_profiles")
     .update({ user_type, has_chosen_role: true })

@@ -48,8 +48,24 @@ export async function POST(req: NextRequest) {
   // Application limit gate — blocks free_trial and chef users at 0 remaining.
   // Institute users have applications_remaining = null so they're never blocked.
   // No profile row at all = treat as limit reached (migration may not have run yet).
-  if (!profile || profile.applications_remaining === 0) {
+  if (!profile || (profile.applications_remaining !== null && profile.applications_remaining <= 0)) {
     return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
+  }
+
+  // Decrement BEFORE sending to prevent race conditions with concurrent requests.
+  // If the user has a finite quota, atomically decrement and re-check.
+  if (profile.applications_remaining !== null) {
+    const { data: updated } = await supabase
+      .from("user_profiles")
+      .update({ applications_remaining: profile.applications_remaining - 1 })
+      .eq("user_id", session.user.email)
+      .gte("applications_remaining", 1)
+      .select("applications_remaining")
+      .single();
+
+    if (!updated) {
+      return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
+    }
   }
 
   try {
@@ -62,14 +78,6 @@ export async function POST(req: NextRequest) {
       user_email: session.user.email,
       chef_name: profile?.name ?? session.user.name ?? "",
     });
-
-    // Decrement applications_remaining for any finite-quota user (free_trial or chef)
-    if (profile && profile.applications_remaining !== null) {
-      await supabase
-        .from("user_profiles")
-        .update({ applications_remaining: profile.applications_remaining - 1 })
-        .eq("user_id", session.user.email);
-    }
 
     return NextResponse.json(result);
   } catch (err) {

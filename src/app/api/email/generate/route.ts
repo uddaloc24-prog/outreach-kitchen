@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const [{ data: restaurant }, { data: log }, { data: profileRow }] = await Promise.all([
     supabase.from("restaurants").select("*").eq("id", restaurant_id).single(),
     supabase.from("outreach_log").select("*").eq("restaurant_id", restaurant_id).eq("user_id", userId).single(),
-    supabase.from("user_profiles").select("parsed_profile").eq("user_id", userId).single(),
+    supabase.from("user_profiles").select("parsed_profile, applications_remaining").eq("user_id", userId).single(),
   ]);
 
   if (!restaurant || !log) {
@@ -33,6 +33,11 @@ export async function POST(req: NextRequest) {
   }
   if (!profileRow?.parsed_profile) {
     return NextResponse.json({ error: "Upload your CV first" }, { status: 400 });
+  }
+
+  // Quota gate — block users with no applications remaining
+  if (profileRow.applications_remaining !== null && profileRow.applications_remaining <= 0) {
+    return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
   }
 
   try {

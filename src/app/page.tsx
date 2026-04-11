@@ -97,9 +97,9 @@ export default function HomePage() {
       }
 
       if (profile?.user_type === "free_trial") {
-        if (!sessionStorage.getItem("onboarding_complete")) {
+        if (!localStorage.getItem("onboarding_complete")) {
           setShowOnboarding(true);
-        } else if (!sessionStorage.getItem("free_trial_dismissed")) {
+        } else if (!localStorage.getItem("free_trial_dismissed")) {
           setShowFreeTrial(true);
         }
       }
@@ -109,9 +109,9 @@ export default function HomePage() {
   }
 
   function handleOnboardingComplete() {
-    sessionStorage.setItem("onboarding_complete", "1");
+    localStorage.setItem("onboarding_complete", "1");
     setShowOnboarding(false);
-    if (!sessionStorage.getItem("free_trial_dismissed")) {
+    if (!localStorage.getItem("free_trial_dismissed")) {
       setShowFreeTrial(true);
     }
   }
@@ -226,7 +226,7 @@ export default function HomePage() {
       {showFreeTrial && (
         <FreeTrialModal
           onContinue={() => {
-            sessionStorage.setItem("free_trial_dismissed", "1");
+            localStorage.setItem("free_trial_dismissed", "1");
             setShowFreeTrial(false);
           }}
         />

@@ -41,7 +41,7 @@ export const authOptions: NextAuthOptions = {
           .single();
         if (allowed) {
           await supabase.from("user_profiles").upsert(
-            { user_id: user.email, user_type: "institute", applications_remaining: null },
+            { user_id: user.email, user_type: "institute", applications_remaining: null, has_chosen_role: true },
             { onConflict: "user_id" }
           );
           return true;
