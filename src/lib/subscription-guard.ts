@@ -167,7 +167,11 @@ export async function canAccessRestaurant(
     .eq("status", "active")
     .single();
 
-  const tier: TierKey = (sub?.tier as TierKey) ?? "starter";
+  // No active subscription → allow all restaurants.
+  // The application quota (canSendApplication) already limits free usage.
+  if (!sub) return { allowed: true };
+
+  const tier: TierKey = sub.tier as TierKey;
 
   // Check restaurant type access
   const allowedTypes = TIER_RESTAURANT_ACCESS[tier];
