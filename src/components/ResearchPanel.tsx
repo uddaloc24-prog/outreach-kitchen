@@ -14,12 +14,13 @@ interface ResearchPanelProps {
   restaurant: RestaurantWithOutreach | null;
   onClose: () => void;
   onStatusChange: () => void;
+  onUpgradeRequired?: (requiredTier: string) => void;
 }
 
 type Step = "idle" | "scraping" | "briefing" | "done" | "error";
 type StepError = string | null;
 
-export function ResearchPanel({ restaurant, onClose, onStatusChange }: ResearchPanelProps) {
+export function ResearchPanel({ restaurant, onClose, onStatusChange, onUpgradeRequired }: ResearchPanelProps) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("idle");
   const [stepError, setStepError] = useState<StepError>(null);
@@ -106,6 +107,12 @@ export function ResearchPanel({ restaurant, onClose, onStatusChange }: ResearchP
           return;
         }
         const err = await res.json();
+        if (res.status === 403 && err.error === "restaurant_restricted") {
+          if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
+          setStep("idle");
+          onUpgradeRequired?.(err.requiredTier ?? "pro");
+          return;
+        }
         throw new Error(err.error || "Research failed");
       }
 
@@ -198,6 +205,10 @@ export function ResearchPanel({ restaurant, onClose, onStatusChange }: ResearchP
           return;
         }
         const err = await res.json();
+        if (res.status === 403 && err.error === "restaurant_restricted") {
+          onUpgradeRequired?.(err.requiredTier ?? "pro");
+          return;
+        }
         throw new Error(err.error || "Email generation failed");
       }
 

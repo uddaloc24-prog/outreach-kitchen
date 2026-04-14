@@ -90,6 +90,8 @@ export default function HomePage() {
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [discoverBatch, setDiscoverBatch] = useState(0);
   const [discovering, setDiscovering] = useState(false);
+  const [discoverDone, setDiscoverDone] = useState(false);
+  const failedBatchesRef = useRef(0);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   // User tier state
@@ -240,7 +242,7 @@ export default function HomePage() {
 
   // Auto-discover more restaurants when user scrolls to bottom
   const discoverMore = useCallback(async () => {
-    if (discovering || !session) return;
+    if (discovering || discoverDone || !session) return;
     setDiscovering(true);
     try {
       const res = await fetch("/api/restaurants/discover", {
@@ -251,16 +253,25 @@ export default function HomePage() {
       if (res.ok) {
         const data = await res.json() as { added: number };
         if (data.added > 0) {
+          failedBatchesRef.current = 0;
           await fetchRestaurants();
+        } else {
+          failedBatchesRef.current += 1;
+          if (failedBatchesRef.current >= 3) {
+            setDiscoverDone(true);
+          }
         }
         setDiscoverBatch((b) => b + 1);
       }
     } catch {
-      // silently ignore
+      failedBatchesRef.current += 1;
+      if (failedBatchesRef.current >= 3) {
+        setDiscoverDone(true);
+      }
     } finally {
       setDiscovering(false);
     }
-  }, [discovering, discoverBatch, session]);
+  }, [discovering, discoverDone, discoverBatch, session]);
 
   // Intersection observer for infinite scroll
   useEffect(() => {
@@ -435,7 +446,7 @@ export default function HomePage() {
       )}
 
       {/* Infinite scroll sentinel */}
-      {!loading && filtered.length > 0 && (
+      {!loading && filtered.length > 0 && !discoverDone && (
         <div ref={loadMoreRef} className="flex items-center justify-center py-8">
           {discovering && (
             <span className="text-small text-muted flex items-center gap-2">
@@ -455,6 +466,13 @@ export default function HomePage() {
             fetchRestaurants();
             const updated = restaurants.find((r) => r.id === selected.id);
             if (updated) setSelected(updated);
+          }}
+          onUpgradeRequired={(requiredTier) => {
+            setUpgradeTarget({
+              restaurant: selected,
+              requiredTier: requiredTier as TierKey,
+            });
+            setSelected(null);
           }}
         />
       )}
