@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 
 interface PublicRestaurant {
   id: string;
@@ -32,11 +33,26 @@ function StarDisplay({ count }: { count: number }) {
   );
 }
 
-export function RestaurantDirectory({ restaurants, cities, countries }: Props) {
+export function RestaurantDirectory({ restaurants: initial, cities: initialCities, countries: initialCountries }: Props) {
+  const { data: session } = useSession();
+  const [restaurants, setRestaurants] = useState(initial);
   const [search, setSearch] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("all");
   const [starsFilter, setStarsFilter] = useState("all");
+  const [discoverBatch, setDiscoverBatch] = useState(0);
+  const [discovering, setDiscovering] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  // Derive filter options from current restaurant list
+  const cities = useMemo(
+    () => Array.from(new Set(restaurants.map((r) => r.city))).sort(),
+    [restaurants]
+  );
+  const countries = useMemo(
+    () => Array.from(new Set(restaurants.map((r) => r.country))).sort(),
+    [restaurants]
+  );
 
   const filtered = useMemo(() => {
     return restaurants.filter((r) => {
@@ -46,7 +62,8 @@ export function RestaurantDirectory({ restaurants, cities, countries }: Props) {
           !r.name.toLowerCase().includes(q) &&
           !(r.head_chef ?? "").toLowerCase().includes(q) &&
           !(r.cuisine_style ?? "").toLowerCase().includes(q) &&
-          !r.city.toLowerCase().includes(q)
+          !r.city.toLowerCase().includes(q) &&
+          !r.country.toLowerCase().includes(q)
         )
           return false;
       }
@@ -56,6 +73,59 @@ export function RestaurantDirectory({ restaurants, cities, countries }: Props) {
       return true;
     });
   }, [restaurants, search, cityFilter, countryFilter, starsFilter]);
+
+  // Refresh restaurants from API after discover
+  async function refreshRestaurants() {
+    try {
+      const res = await fetch("/api/restaurants/public");
+      if (res.ok) {
+        const data = await res.json() as { restaurants: PublicRestaurant[] };
+        setRestaurants(data.restaurants ?? []);
+      }
+    } catch {
+      // keep existing data
+    }
+  }
+
+  const discoverMore = useCallback(async () => {
+    if (discovering || !session) return;
+    setDiscovering(true);
+    try {
+      const res = await fetch("/api/restaurants/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batch: discoverBatch }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { added: number };
+        if (data.added > 0) {
+          await refreshRestaurants();
+        }
+        setDiscoverBatch((b) => b + 1);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setDiscovering(false);
+    }
+  }, [discovering, discoverBatch, session]);
+
+  // Intersection observer for infinite scroll
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && session) {
+          discoverMore();
+        }
+      },
+      { rootMargin: "400px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [session, discoverMore]);
 
   return (
     <main className="max-w-[1200px] mx-auto px-4 sm:px-8 py-12 sm:py-20">
@@ -201,8 +271,18 @@ export function RestaurantDirectory({ restaurants, cities, countries }: Props) {
         </div>
       )}
 
+      {/* Infinite scroll sentinel */}
+      <div ref={loadMoreRef} className="flex items-center justify-center py-8">
+        {discovering && (
+          <span className="text-[13px] text-muted flex items-center gap-2">
+            <Loader2 size={14} className="animate-spin" />
+            Discovering more restaurants…
+          </span>
+        )}
+      </div>
+
       {/* CTA */}
-      <div className="mt-16 border border-warm-border p-10 text-center">
+      <div className="mt-8 border border-warm-border p-10 text-center">
         <p className="font-display text-[24px] sm:text-[32px] font-light text-ink">
           Apply to any of these restaurants in minutes
         </p>

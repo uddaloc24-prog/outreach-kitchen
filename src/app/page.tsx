@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { TopBar } from "@/components/TopBar";
 import { FilterBar } from "@/components/FilterBar";
@@ -59,6 +59,9 @@ export default function HomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [aiSearching, setAiSearching] = useState(false);
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [discoverBatch, setDiscoverBatch] = useState(0);
+  const [discovering, setDiscovering] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   // Filters — default all stars visible
   const [search, setSearch] = useState("");
@@ -180,6 +183,48 @@ export default function HomePage() {
     };
   }, [search, session]);
 
+  // Auto-discover more restaurants when user scrolls to bottom
+  const discoverMore = useCallback(async () => {
+    if (discovering || !session) return;
+    setDiscovering(true);
+    try {
+      const res = await fetch("/api/restaurants/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batch: discoverBatch }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { added: number };
+        if (data.added > 0) {
+          await fetchRestaurants();
+        }
+        setDiscoverBatch((b) => b + 1);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setDiscovering(false);
+    }
+  }, [discovering, discoverBatch, session]);
+
+  // Intersection observer for infinite scroll
+  useEffect(() => {
+    if (!session || loading) return;
+    const el = loadMoreRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          discoverMore();
+        }
+      },
+      { rootMargin: "400px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [session, loading, discoverMore]);
+
   const filtered = useMemo(() => {
     return restaurants.filter((r) => {
       if (search) {
@@ -299,6 +344,18 @@ export default function HomePage() {
           restaurants={filtered}
           onSelect={(r) => setSelected(r)}
         />
+      )}
+
+      {/* Infinite scroll sentinel */}
+      {!loading && filtered.length > 0 && (
+        <div ref={loadMoreRef} className="flex items-center justify-center py-8">
+          {discovering && (
+            <span className="text-small text-muted flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin" />
+              Discovering more restaurants…
+            </span>
+          )}
+        </div>
       )}
 
       {/* Research Panel (Screen 2 + 3) */}
