@@ -84,11 +84,8 @@ export default function HomePage() {
       const profile = data.profile ?? null;
       setUserProfile(profile);
 
-      // Employer → redirect to employer dashboard
-      if (profile?.user_type === "employer") {
-        window.location.href = "/employer";
-        return;
-      }
+      // Employer → show coming soon (employer dashboard not yet live)
+      // Previously redirected to /employer, now we just let them stay on home
 
       // New user who hasn't chosen a role → redirect to onboard
       if (profile && !profile.has_chosen_role) {
@@ -232,6 +229,10 @@ export default function HomePage() {
           >
             Sign in with Google
           </button>
+          <div className="mt-12 flex gap-6 text-[12px] text-muted">
+            <a href="/privacy" className="hover:text-ink transition-colors">Privacy Policy</a>
+            <a href="/terms" className="hover:text-ink transition-colors">Terms of Service</a>
+          </div>
         </div>
       </div>
     );

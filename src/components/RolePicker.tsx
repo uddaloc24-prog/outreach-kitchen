@@ -80,15 +80,18 @@ export function RolePicker() {
             )}
           </button>
 
-          {/* Employer card */}
-          <button
-            onClick={() => handleSelect("employer")}
-            disabled={isLoading}
-            className="flex-1 p-8 sm:p-10 text-left hover:bg-ink/5 transition-colors disabled:opacity-60 group"
+          {/* Employer card — coming soon */}
+          <div
+            className="flex-1 p-8 sm:p-10 text-left opacity-60 cursor-default"
           >
-            <p className="text-[11px] tracking-[0.2em] uppercase text-muted mb-4">
-              For restaurants
-            </p>
+            <div className="flex items-center gap-3 mb-4">
+              <p className="text-[11px] tracking-[0.2em] uppercase text-muted">
+                For restaurants
+              </p>
+              <span className="text-[10px] tracking-[0.15em] uppercase px-2 py-0.5 border border-warm-border text-muted">
+                Coming soon
+              </span>
+            </div>
             <p className="font-display text-[24px] sm:text-[28px] font-light text-ink leading-tight">
               I&apos;m hiring
             </p>
@@ -97,17 +100,10 @@ export function RolePicker() {
               from chefs worldwide. Review applicants, track interest, and
               schedule interviews — all in one inbox.
             </p>
-            {loading === "employer" ? (
-              <div className="mt-8 flex items-center gap-2 text-[12px] text-muted">
-                <Loader2 size={14} className="animate-spin" />
-                Setting up…
-              </div>
-            ) : (
-              <p className="mt-8 text-[12px] text-ink group-hover:underline underline-offset-4">
-                Set up your restaurant →
-              </p>
-            )}
-          </button>
+            <p className="mt-8 text-[12px] text-muted">
+              We&apos;ll notify you when this is ready.
+            </p>
+          </div>
         </div>
 
         {error && (

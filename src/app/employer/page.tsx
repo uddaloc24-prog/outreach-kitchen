@@ -1,51 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { TopBar } from "@/components/TopBar";
-import { EmployerDashboard } from "@/components/EmployerDashboard";
-import type { EmployerRestaurant } from "@/types";
-
-type RestaurantResponse = {
-  restaurant: (EmployerRestaurant & { employer_role?: string }) | null;
-  error?: string;
-};
+import Link from "next/link";
 
 export default function EmployerPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
-  const [restaurant, setRestaurant] = useState<(EmployerRestaurant & { employer_role?: string }) | null | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/");
-      return;
     }
-    if (status !== "authenticated") return;
-
-    async function checkRestaurant() {
-      try {
-        const res = await fetch("/api/employer/restaurant");
-        const data = await res.json() as RestaurantResponse;
-        if (!data.restaurant) {
-          router.replace("/employer/setup");
-          return;
-        }
-        setRestaurant(data.restaurant);
-      } catch {
-        router.replace("/employer/setup");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    checkRestaurant();
   }, [status, router]);
 
-  if (status === "loading" || loading || restaurant === undefined) {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 size={20} className="animate-spin text-muted" />
@@ -53,25 +24,25 @@ export default function EmployerPage() {
     );
   }
 
-  if (!restaurant) {
-    return null; // redirect in progress
-  }
-
   return (
-    <div className="min-h-screen bg-parchment">
-      <TopBar />
-      <div className="max-w-[900px] mx-auto px-5 sm:px-8 py-8 sm:py-12">
-        {/* Page header */}
-        <div className="mb-8">
-          <p className="text-[11px] tracking-[0.2em] uppercase text-muted mb-2">
-            Employer
-          </p>
-          <h1 className="font-display text-[28px] sm:text-[38px] font-light text-ink leading-tight">
-            Applications inbox
-          </h1>
-        </div>
-
-        <EmployerDashboard restaurant={restaurant} />
+    <div className="min-h-screen bg-parchment flex flex-col items-center justify-center px-5 sm:px-8">
+      <div className="w-full max-w-[480px] text-center">
+        <span className="text-[10px] tracking-[0.15em] uppercase px-3 py-1 border border-warm-border text-muted inline-block mb-6">
+          Coming soon
+        </span>
+        <h1 className="font-display text-[28px] sm:text-[36px] font-light text-ink leading-tight">
+          Employer tools are on the way
+        </h1>
+        <p className="text-[14px] text-muted mt-4 leading-relaxed">
+          We&apos;re building a dedicated hiring dashboard where restaurants can
+          receive applications, review chef profiles, and schedule interviews.
+        </p>
+        <Link
+          href="/"
+          className="inline-block mt-10 border border-ink px-8 py-3 text-[13px] text-ink hover:bg-ink hover:text-parchment transition-colors"
+        >
+          Back to home
+        </Link>
       </div>
     </div>
   );

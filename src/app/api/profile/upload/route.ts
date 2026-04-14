@@ -9,24 +9,25 @@ import type { ParsedProfile } from "@/types";
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  // Try pdf-parse (may fail on some serverless platforms)
+  // Try pdf-parse v2 (PDFParse class, getText() returns a string directly)
   try {
     const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: buffer });
     const result = await parser.getText();
-    if (result.text && result.text.trim().length > 10) return result.text;
+    const text = String(result);
+    if (text.trim().length > 10) return text;
   } catch {
-    // pdf-parse unavailable — fall through to raw extraction
+    // pdf-parse failed — fall through to raw extraction
   }
 
   // Fallback: extract readable text directly from PDF binary
-  const text = buffer
+  const raw = buffer
     .toString("latin1")
     .replace(/\\n/g, "\n")
     .replace(/\\r/g, "");
 
   // Extract text between BT...ET blocks (PDF text objects)
-  const btBlocks = text.match(/BT[\s\S]*?ET/g) || [];
+  const btBlocks = raw.match(/BT[\s\S]*?ET/g) || [];
   const lines: string[] = [];
   for (const block of btBlocks) {
     const tjMatches = block.match(/\(([^)]*)\)\s*Tj/g) || [];
@@ -153,7 +154,8 @@ export async function POST(req: NextRequest) {
 
       try {
         cv_text = await extractPdfText(pdfBuffer);
-      } catch {
+      } catch (err) {
+        console.error("[profile/upload] PDF extraction failed:", err instanceof Error ? err.message : err);
         return NextResponse.json(
           { error: "Could not read this PDF — try pasting your CV text instead." },
           { status: 400 }
