@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import type { RestaurantWithOutreach, GeneratedEmail } from "@/types";
+import { ShareButtons } from "@/components/ShareButtons";
 
 interface EmailDraftProps {
   restaurant: RestaurantWithOutreach;
@@ -39,6 +40,7 @@ export function EmailDraft({
   const [isSending, setIsSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [justSent, setJustSent] = useState(false);
 
   // Sync body when email changes from parent
   useEffect(() => {
@@ -82,7 +84,7 @@ export function EmailDraft({
 
       toast.success(`Sent to ${restaurant.name} ✓`);
       setShowConfirm(false);
-      onSent();
+      setJustSent(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to send email";
       setSendError(msg);
@@ -200,7 +202,35 @@ export function EmailDraft({
       )}
 
       {/* Keyboard hint */}
-      <p className="text-small text-muted/50 text-center">⌘ + Enter to send</p>
+      {!justSent && (
+        <p className="text-small text-muted/50 text-center">⌘ + Enter to send</p>
+      )}
+
+      {/* Post-send share CTA */}
+      {justSent && (
+        <div className="border border-warm-border p-6 text-center space-y-4">
+          <div className="flex items-center justify-center gap-2 text-ink">
+            <Share2 size={16} />
+            <p className="font-display text-[18px] font-light">
+              Know a chef who&apos;s looking?
+            </p>
+          </div>
+          <p className="text-[13px] text-muted">
+            Share Kitchen Applications with a friend — when they send their first
+            application, you both get 3 bonus applications.
+          </p>
+          <ShareButtons
+            text="I just applied to a Michelin-starred restaurant with Kitchen Applications — it researches the restaurant and writes a personalised cover email for you. Check it out:"
+            url={process.env.NEXT_PUBLIC_SITE_URL ?? "https://outreach-kitchen.vercel.app"}
+          />
+          <button
+            onClick={onSent}
+            className="text-[12px] text-muted hover:text-ink transition-colors mt-2"
+          >
+            Continue &rarr;
+          </button>
+        </div>
+      )}
 
       {/* Confirm dialog */}
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { ParsedProfile, ParsedProfileExperience } from "@/types";
 
 interface ChefProfileProps {
@@ -16,9 +17,11 @@ function AvatarOrInitial({
 }) {
   if (avatar_url) {
     return (
-      <img
+      <Image
         src={avatar_url}
         alt={name}
+        width={80}
+        height={80}
         className="w-20 h-20 rounded-full object-cover border border-warm-border"
       />
     );

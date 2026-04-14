@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { Loader2, CheckCircle, XCircle, Calendar, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import type { EmployerApplication, EmployerStats, EmployerRestaurant, EmployerApplicationStatus } from "@/types";
 
@@ -30,8 +31,7 @@ function StarBadge({ stars }: { stars: number }) {
 function AvatarCircle({ name, url }: { name: string | null; url: string | null }) {
   if (url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={url} alt={name ?? "chef"} className="w-9 h-9 rounded-full object-cover border border-warm-border" />
+      <Image src={url} alt={name ?? "chef"} width={36} height={36} className="w-9 h-9 rounded-full object-cover border border-warm-border" />
     );
   }
   const initial = (name ?? "?").charAt(0).toUpperCase();

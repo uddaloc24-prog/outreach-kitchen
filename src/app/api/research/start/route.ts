@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { researchRestaurant } from "@/lib/tools/research-restaurant";
 import { generateResearchBrief } from "@/lib/tools/generate-research-brief";
+import { canSendApplication } from "@/lib/subscription-guard";
 import type { ResearchBrief, ParsedProfile } from "@/types";
 
 export async function POST(req: NextRequest) {
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const { data: profileRow } = await supabase
     .from("user_profiles")
-    .select("parsed_profile, user_type, applications_remaining")
+    .select("parsed_profile, user_type")
     .eq("user_id", userId)
     .single();
 
@@ -41,8 +42,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Quota gate — block users with no applications remaining
-  if (profileRow.applications_remaining !== null && profileRow.applications_remaining <= 0) {
+  // Unified quota check — covers institute, Dodo subscription, and legacy Stripe/free-trial
+  const quota = await canSendApplication(userId);
+  if (!quota.allowed) {
     return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
   }
 

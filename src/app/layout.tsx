@@ -30,6 +30,9 @@ export const metadata: Metadata = {
   },
   description:
     "Apply to 40+ Michelin-starred kitchens with AI-researched cover emails sent from your Gmail. Track replies, generate follow-ups, and land your dream stage.",
+  alternates: {
+    canonical: SITE_URL,
+  },
   openGraph: {
     type: "website",
     siteName: "Kitchen Applications",
@@ -37,12 +40,14 @@ export const metadata: Metadata = {
     description:
       "Apply to 40+ Michelin-starred kitchens with AI-researched cover emails sent from your Gmail. Track replies, generate follow-ups, and land your dream stage.",
     url: SITE_URL,
+    images: [{ url: "/icon.svg", width: 512, height: 512, alt: "Kitchen Applications" }],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "Kitchen Applications — AI-Powered Michelin Restaurant Outreach",
     description:
       "Apply to 40+ Michelin-starred kitchens with AI-researched cover emails. Track replies and land your dream stage.",
+    images: ["/icon.svg"],
   },
   icons: {
     icon: "/icon.svg",

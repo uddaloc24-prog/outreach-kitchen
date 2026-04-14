@@ -116,6 +116,30 @@ export default function HomePage() {
     }
   }
 
+  // Store referral code from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) {
+      localStorage.setItem("referral_code", ref);
+    }
+  }, []);
+
+  // Track referral when user signs in
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    const code = localStorage.getItem("referral_code");
+    if (!code) return;
+
+    fetch("/api/referral/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, referee_email: session.user.email }),
+    })
+      .then(() => localStorage.removeItem("referral_code"))
+      .catch(() => {});
+  }, [session]);
+
   useEffect(() => {
     if (authStatus === "loading") return;
     if (!session) { setLoading(false); return; }

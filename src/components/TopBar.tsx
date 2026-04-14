@@ -27,16 +27,17 @@ export function TopBar() {
     { href: "/", label: "Restaurant List", chefOnly: true },
     { href: "/dashboard", label: "Dashboard", chefOnly: true },
     { href: "/employer", label: "Inbox", employerOnly: true },
-    { href: "/jobs", label: "Job Board", authOnly: true },
+    { href: "/jobs", label: "Job Board" },
+    { href: "/restaurants", label: "Directory" },
+    { href: "/blog", label: "Blog" },
     { href: "/profile", label: "My Profile", chefOnly: true },
     { href: "/pricing", label: "Pricing", unauthOnly: true },
   ];
 
-  const visibleLinks = navLinks.filter((l: typeof navLinks[number]) => {
-    if (l.authOnly && !session) return false;
-    if (l.unauthOnly && session) return false;
-    if (l.chefOnly && (!session || isEmployer)) return false;
-    if (l.employerOnly && (!session || !isEmployer)) return false;
+  const visibleLinks = navLinks.filter((l) => {
+    if ("unauthOnly" in l && l.unauthOnly && session) return false;
+    if ("chefOnly" in l && l.chefOnly && (!session || isEmployer)) return false;
+    if ("employerOnly" in l && l.employerOnly && (!session || !isEmployer)) return false;
     return true;
   });
 

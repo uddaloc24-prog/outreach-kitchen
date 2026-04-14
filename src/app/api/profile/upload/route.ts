@@ -4,10 +4,50 @@ import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { generateSlug } from "@/lib/slug";
 import Groq from "groq-sdk";
-import { PDFParse } from "pdf-parse";
 import type { ParsedProfile } from "@/types";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  // Try pdf-parse (may fail on some serverless platforms)
+  try {
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
+    if (result.text && result.text.trim().length > 10) return result.text;
+  } catch {
+    // pdf-parse unavailable — fall through to raw extraction
+  }
+
+  // Fallback: extract readable text directly from PDF binary
+  const text = buffer
+    .toString("latin1")
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "");
+
+  // Extract text between BT...ET blocks (PDF text objects)
+  const btBlocks = text.match(/BT[\s\S]*?ET/g) || [];
+  const lines: string[] = [];
+  for (const block of btBlocks) {
+    const tjMatches = block.match(/\(([^)]*)\)\s*Tj/g) || [];
+    const tdMatches = block.match(/\[([^\]]*)\]\s*TJ/g) || [];
+    for (const m of tjMatches) {
+      const inner = m.match(/\(([^)]*)\)/)?.[1];
+      if (inner) lines.push(inner);
+    }
+    for (const m of tdMatches) {
+      const parts = m.match(/\(([^)]*)\)/g) || [];
+      const joined = parts.map((p) => p.slice(1, -1)).join("");
+      if (joined) lines.push(joined);
+    }
+  }
+
+  const extracted = lines.join("\n").trim();
+  if (extracted.length < 20) {
+    throw new Error("Could not extract text from this PDF");
+  }
+  return extracted;
+}
 
 async function parseCvWithClaude(cv_text: string): Promise<ParsedProfile> {
   const response = await groq.chat.completions.create({
@@ -70,133 +110,145 @@ ${cv_text}`,
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let cv_text: string;
-  let pdfBuffer: Buffer | null = null;
-
-  const contentType = req.headers.get("content-type") ?? "";
-
-  if (contentType.includes("multipart/form-data")) {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith(".pdf")) {
+
+    let cv_text: string;
+    let pdfBuffer: Buffer | null = null;
+
+    const contentType = req.headers.get("content-type") ?? "";
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      const file = formData.get("file") as File | null;
+      if (!file) {
+        return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      }
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith(".pdf")) {
+        return NextResponse.json(
+          { error: "Only PDF files are supported. Please convert your CV to PDF first." },
+          { status: 400 }
+        );
+      }
+
+      if (file.size > 4 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: "File is too large. Please use a PDF under 4 MB." },
+          { status: 400 }
+        );
+      }
+
+      pdfBuffer = Buffer.from(await file.arrayBuffer());
+
+      if (pdfBuffer.length < 100) {
+        return NextResponse.json(
+          { error: "File appears to be empty or corrupted. Please try a different PDF." },
+          { status: 400 }
+        );
+      }
+
+      try {
+        cv_text = await extractPdfText(pdfBuffer);
+      } catch {
+        return NextResponse.json(
+          { error: "Could not read this PDF — try pasting your CV text instead." },
+          { status: 400 }
+        );
+      }
+    } else {
+      let body: { cv_text: string };
+      try {
+        body = await req.json();
+      } catch {
+        return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+      }
+      cv_text = body.cv_text ?? "";
+    }
+
+    if (!cv_text || cv_text.trim().length < 50) {
       return NextResponse.json(
-        { error: "Only PDF files are supported. Please convert your CV to PDF first." },
+        { error: "CV text is too short — ensure the PDF was parsed correctly" },
         { status: 400 }
       );
     }
 
-    pdfBuffer = Buffer.from(await file.arrayBuffer());
-
-    if (pdfBuffer.length < 100) {
-      return NextResponse.json(
-        { error: "File appears to be empty or corrupted. Please try a different PDF." },
-        { status: 400 }
-      );
-    }
-
+    let parsed: ParsedProfile;
     try {
-      const parser = new PDFParse({ data: pdfBuffer });
-      const result = await parser.getText();
-      cv_text = result.text;
-    } catch {
-      return NextResponse.json(
-        { error: "Could not read this PDF — it may be corrupted, password-protected, or image-only. Try pasting your CV text instead." },
-        { status: 400 }
-      );
+      parsed = await parseCvWithClaude(cv_text);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to parse CV";
+      return NextResponse.json({ error: message }, { status: 500 });
     }
-  } else {
-    let body: { cv_text: string };
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-    }
-    cv_text = body.cv_text ?? "";
-  }
 
-  if (!cv_text || cv_text.trim().length < 50) {
+    const supabase = createServerSupabase();
+
+    // Store PDF in Supabase Storage (path: {email}/cv.pdf — attached to every sent email)
+    if (pdfBuffer) {
+      // Ensure bucket exists (creates it if missing)
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some((b) => b.name === "cv-files");
+      if (!bucketExists) {
+        await supabase.storage.createBucket("cv-files", { public: false });
+      }
+
+      const { error: storageErr } = await supabase.storage
+        .from("cv-files")
+        .upload(`${session.user.email}/cv.pdf`, pdfBuffer, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+
+      if (storageErr) {
+        return NextResponse.json(
+          { error: `Failed to store CV: ${storageErr.message}` },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Preserve existing slug; generate one if this is the first upload
+    const { data: existing } = await supabase
+      .from("user_profiles")
+      .select("slug")
+      .eq("user_id", session.user.email)
+      .single();
+
+    const slug =
+      existing?.slug ||
+      generateSlug(parsed.name || session.user.name || session.user.email);
+
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .upsert(
+        {
+          user_id: session.user.email,
+          name: parsed.name || session.user.name || "",
+          email: parsed.email || session.user.email,
+          phone: parsed.phone || "",
+          raw_cv_text: cv_text,
+          parsed_profile: parsed,
+          slug,
+          avatar_url: session.user.image || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: "Failed to save profile" }, { status: 500 });
+    }
+
+    return NextResponse.json({ profile: data });
+  } catch {
     return NextResponse.json(
-      { error: "CV text is too short — ensure the PDF was parsed correctly" },
-      { status: 400 }
+      { error: "An unexpected error occurred. Please try again." },
+      { status: 500 }
     );
   }
-
-  let parsed: ParsedProfile;
-  try {
-    parsed = await parseCvWithClaude(cv_text);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to parse CV";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-
-  const supabase = createServerSupabase();
-
-  // Store PDF in Supabase Storage (path: {email}/cv.pdf — attached to every sent email)
-  if (pdfBuffer) {
-    // Ensure bucket exists (creates it if missing)
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some((b) => b.name === "cv-files");
-    if (!bucketExists) {
-      await supabase.storage.createBucket("cv-files", { public: false });
-    }
-
-    const { error: storageErr } = await supabase.storage
-      .from("cv-files")
-      .upload(`${session.user.email}/cv.pdf`, pdfBuffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
-
-    if (storageErr) {
-      return NextResponse.json(
-        { error: `Failed to store CV: ${storageErr.message}` },
-        { status: 500 }
-      );
-    }
-  }
-
-  // Preserve existing slug; generate one if this is the first upload
-  const { data: existing } = await supabase
-    .from("user_profiles")
-    .select("slug")
-    .eq("user_id", session.user.email)
-    .single();
-
-  const slug =
-    existing?.slug ||
-    generateSlug(parsed.name || session.user.name || session.user.email);
-
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .upsert(
-      {
-        user_id: session.user.email,
-        name: parsed.name || session.user.name || "",
-        email: parsed.email || session.user.email,
-        phone: parsed.phone || "",
-        raw_cv_text: cv_text,
-        parsed_profile: parsed,
-        slug,
-        avatar_url: session.user.image || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    )
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: "Failed to save profile" }, { status: 500 });
-  }
-
-  return NextResponse.json({ profile: data });
 }

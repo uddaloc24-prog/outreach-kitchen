@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { RestaurantWithOutreach, DashboardStats } from "@/types";
+import { ReferralSection } from "@/components/ReferralSection";
 
 function LogRow({ r }: { r: RestaurantWithOutreach }) {
   const [expanded, setExpanded] = useState(false);
@@ -189,6 +190,9 @@ export default function DashboardPage() {
           </div>
           <FollowUpQueue restaurants={followUps} onUpdate={fetchData} />
         </div>
+
+        {/* Referral */}
+        <ReferralSection />
 
         {/* Full outreach log */}
         <div>

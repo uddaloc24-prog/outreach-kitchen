@@ -20,6 +20,17 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  async function safeJsonParse(res: Response) {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      if (res.status === 413) throw new Error("File is too large. Please use a smaller PDF (under 4 MB).");
+      if (res.status >= 500) throw new Error("Server error — please try again in a moment.");
+      throw new Error(text.slice(0, 120) || "Upload failed");
+    }
+  }
+
   async function submitText(text: string) {
     if (!text || text.trim().length < 50) {
       setError("CV looks too short — paste the full text.");
@@ -33,7 +44,7 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cv_text: text }),
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       setProfile(data.profile);
       setStep("review");
@@ -49,6 +60,10 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
       setError("Please upload a PDF file.");
       return;
     }
+    if (file.size > 4 * 1024 * 1024) {
+      setError("File is too large. Please use a PDF under 4 MB.");
+      return;
+    }
     setStep("parsing");
     setError(null);
     try {
@@ -58,7 +73,7 @@ export function CVUploadModal({ onComplete }: CVUploadModalProps) {
         method: "POST",
         body: formData,
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       setProfile(data.profile);
       setStep("review");

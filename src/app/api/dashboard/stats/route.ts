@@ -12,10 +12,11 @@ export async function GET() {
   const supabase = createServerSupabase();
   const userId = session.user.email;
 
-  const [{ count: total }, { data: logs }, { data: profile }] = await Promise.all([
+  const [{ count: total }, { data: logs }, { data: profile }, { data: subscription }] = await Promise.all([
     supabase.from("restaurants").select("*", { count: "exact", head: true }),
     supabase.from("outreach_log").select("status").eq("user_id", userId),
     supabase.from("user_profiles").select("user_type, applications_remaining").eq("user_id", userId).single(),
+    supabase.from("user_subscriptions").select("tier, status, applications_limit, applications_used, current_period_end").eq("user_email", userId).single(),
   ]);
 
   const counts = (logs ?? []).reduce(
@@ -26,6 +27,11 @@ export async function GET() {
     {} as Record<string, number>
   );
 
+  // For Dodo subscribers, derive applications_remaining from the subscription record
+  const applicationsRemaining = subscription?.status === "active"
+    ? subscription.applications_limit - subscription.applications_used
+    : profile?.applications_remaining ?? null;
+
   return NextResponse.json({
     total: total ?? 0,
     sent: counts["sent"] ?? 0,
@@ -34,6 +40,7 @@ export async function GET() {
     draft_ready: counts["draft_ready"] ?? 0,
     researching: counts["researching"] ?? 0,
     user_type: profile?.user_type ?? "institute",
-    applications_remaining: profile?.applications_remaining ?? null,
+    applications_remaining: applicationsRemaining,
+    subscription: subscription ?? null,
   });
 }

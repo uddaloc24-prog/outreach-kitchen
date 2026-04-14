@@ -77,6 +77,14 @@ export interface DashboardStats {
   researching: number;
   user_type: "institute" | "chef" | "free_trial" | null;
   applications_remaining: number | null;
+  /** Dodo subscription fields (null when user has no Dodo subscription) */
+  subscription?: {
+    tier: string;
+    status: string;
+    applications_limit: number;
+    applications_used: number;
+    current_period_end: string | null;
+  } | null;
 }
 
 export type RegionFilter =

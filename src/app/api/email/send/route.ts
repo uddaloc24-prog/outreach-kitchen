@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { sendEmail } from "@/lib/tools/send-email";
+import { canSendApplication, incrementApplicationCount } from "@/lib/subscription-guard";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -39,34 +40,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No careers email for this restaurant" }, { status: 400 });
   }
 
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("name, user_type, applications_remaining")
-    .eq("user_id", session.user.email)
-    .single();
-
-  // Application limit gate — blocks free_trial and chef users at 0 remaining.
-  // Institute users have applications_remaining = null so they're never blocked.
-  // No profile row at all = treat as limit reached (migration may not have run yet).
-  if (!profile || (profile.applications_remaining !== null && profile.applications_remaining <= 0)) {
+  // Unified quota check — covers institute, Dodo subscription, and legacy Stripe/free-trial
+  const quota = await canSendApplication(session.user.email);
+  if (!quota.allowed) {
     return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
   }
 
-  // Decrement BEFORE sending to prevent race conditions with concurrent requests.
-  // If the user has a finite quota, atomically decrement and re-check.
-  if (profile.applications_remaining !== null) {
-    const { data: updated } = await supabase
-      .from("user_profiles")
-      .update({ applications_remaining: profile.applications_remaining - 1 })
-      .eq("user_id", session.user.email)
-      .gte("applications_remaining", 1)
-      .select("applications_remaining")
-      .single();
-
-    if (!updated) {
-      return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
-    }
+  // Decrement / increment BEFORE sending to prevent race conditions
+  const decremented = await incrementApplicationCount(session.user.email);
+  if (!decremented) {
+    return NextResponse.json({ error: "no_applications_remaining" }, { status: 402 });
   }
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("name")
+    .eq("user_id", session.user.email)
+    .single();
 
   try {
     const result = await sendEmail({
