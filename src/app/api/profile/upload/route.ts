@@ -48,8 +48,25 @@ ${cv_text}`,
   });
 
   const text = response.choices[0]?.message?.content ?? "";
-  const clean = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
-  return JSON.parse(clean) as ParsedProfile;
+  // Strip markdown code fences and any leading/trailing non-JSON chars
+  const clean = text
+    .replace(/^```(?:json)?\s*\n?/, "")
+    .replace(/\n?\s*```$/, "")
+    .trim();
+
+  // Find the first { and last } to extract the JSON object
+  const start = clean.indexOf("{");
+  const end = clean.lastIndexOf("}");
+  if (start === -1 || end === -1) {
+    throw new Error("CV parsing returned an invalid response — please try again");
+  }
+  const jsonStr = clean.slice(start, end + 1);
+
+  try {
+    return JSON.parse(jsonStr) as ParsedProfile;
+  } catch {
+    throw new Error("CV parsing returned an invalid response — please try again");
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -69,15 +86,30 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith(".pdf")) {
+      return NextResponse.json(
+        { error: "Only PDF files are supported. Please convert your CV to PDF first." },
+        { status: 400 }
+      );
+    }
+
     pdfBuffer = Buffer.from(await file.arrayBuffer());
+
+    if (pdfBuffer.length < 100) {
+      return NextResponse.json(
+        { error: "File appears to be empty or corrupted. Please try a different PDF." },
+        { status: 400 }
+      );
+    }
+
     try {
       const parser = new PDFParse({ data: pdfBuffer });
       const result = await parser.getText();
       cv_text = result.text;
-    } catch (pdfErr) {
-      const msg = pdfErr instanceof Error ? pdfErr.message : String(pdfErr);
+    } catch {
       return NextResponse.json(
-        { error: `PDF read failed: ${msg}` },
+        { error: "Could not read this PDF — it may be corrupted, password-protected, or image-only. Try pasting your CV text instead." },
         { status: 400 }
       );
     }
