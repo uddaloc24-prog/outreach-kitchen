@@ -110,7 +110,7 @@ export function ResearchPanel({ restaurant, onClose, onStatusChange, onUpgradeRe
         if (res.status === 403 && err.error === "restaurant_restricted") {
           if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
           setStep("idle");
-          onUpgradeRequired?.(err.requiredTier ?? "pro");
+          router.push(`/pricing?reason=restricted&tier=${err.requiredTier ?? "pro"}`);
           return;
         }
         throw new Error(err.error || "Research failed");
@@ -206,7 +206,7 @@ export function ResearchPanel({ restaurant, onClose, onStatusChange, onUpgradeRe
         }
         const err = await res.json();
         if (res.status === 403 && err.error === "restaurant_restricted") {
-          onUpgradeRequired?.(err.requiredTier ?? "pro");
+          router.push(`/pricing?reason=restricted&tier=${err.requiredTier ?? "pro"}`);
           return;
         }
         throw new Error(err.error || "Email generation failed");

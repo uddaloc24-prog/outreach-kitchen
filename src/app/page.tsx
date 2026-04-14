@@ -378,6 +378,16 @@ export default function HomePage() {
     }
   }
 
+  function handleUpgradeFromPanel(requiredTier: string) {
+    if (selected) {
+      setUpgradeTarget({
+        restaurant: selected,
+        requiredTier: requiredTier as TierKey,
+      });
+    }
+    setSelected(null);
+  }
+
   return (
     <div className="min-h-screen bg-parchment">
       <TopBar />

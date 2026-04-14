@@ -24,7 +24,10 @@ export function PricingClient({
   tiers,
 }: PricingClientProps) {
   const searchParams = useSearchParams();
-  const hitLimit = searchParams.get("reason") === "limit";
+  const reason = searchParams.get("reason");
+  const hitLimit = reason === "limit";
+  const isRestricted = reason === "restricted";
+  const suggestedTier = searchParams.get("tier");
   const [loading, setLoading] = useState<string | null>(null);
   async function handleBuy(tierKey: string) {
     setLoading(tierKey);
@@ -47,8 +50,8 @@ export function PricingClient({
     }
   }
 
-  // The Pro tier is highlighted
-  const highlightTier = "pro";
+  // Highlight the tier from the URL param, or default to pro
+  const highlightTier = suggestedTier === "elite" ? "elite" : "pro";
 
   return (
     <div className="min-h-screen bg-parchment">
@@ -69,6 +72,18 @@ export function PricingClient({
           <div className="border border-warm-border p-5 text-center mb-8">
             <p className="text-[14px] text-ink">
               You&apos;ve used your free application. Choose a plan to keep sending.
+            </p>
+          </div>
+        )}
+
+        {isRestricted && !isInstituteUser && (
+          <div className="border border-gold/40 bg-gold/5 p-5 text-center mb-8">
+            <p className="text-[14px] text-ink">
+              The restaurant you selected requires{" "}
+              <strong>{suggestedTier === "elite" ? "Elite" : "Pro"}</strong>.
+              {suggestedTier === "elite"
+                ? " 2★ & 3★ Michelin and World's 50 Best restaurants are exclusive to Elite."
+                : " Fine dining, hotel restaurants, and 1★ Michelin are available from Pro."}
             </p>
           </div>
         )}

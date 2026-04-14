@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Lock, X, Loader2 } from "lucide-react";
 import type { RestaurantWithOutreach, RestaurantType } from "@/types";
 import type { TierKey } from "@/lib/pricing-config";
@@ -53,6 +54,7 @@ export function UpgradePromptModal({
   currentTier,
   onClose,
 }: UpgradePromptModalProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [pricing, setPricing] = useState<TierPricingData | null>(null);
 
@@ -169,13 +171,22 @@ export function UpgradePromptModal({
           </div>
         </div>
 
-        {/* Dismiss */}
-        <div className="px-6 pb-6 text-center">
+        {/* Actions */}
+        <div className="px-6 pb-6 flex flex-col items-center gap-3">
+          <button
+            onClick={() => {
+              onClose();
+              router.push(`/pricing?reason=restricted&tier=${requiredTier}`);
+            }}
+            className="text-[13px] text-ink underline underline-offset-2 hover:text-ink/70 transition-colors"
+          >
+            Compare all plans →
+          </button>
           <button
             onClick={onClose}
             className="text-[13px] text-muted hover:text-ink transition-colors"
           >
-            Continue browsing restaurants you can apply to
+            Continue browsing
           </button>
         </div>
       </div>
