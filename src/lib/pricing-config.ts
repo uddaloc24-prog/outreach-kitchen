@@ -21,9 +21,9 @@ export interface RegionPricing {
 export const TIER_META: Record<TierKey, { label: string; applications: number; features: string[] }> = {
   starter: {
     label: "Starter",
-    applications: 25,
+    applications: 30,
     features: [
-      "25 personalised cover emails / month",
+      "30 personalised cover emails / month",
       "AI research brief per restaurant",
       "Gmail send via your own account",
       "Dashboard & reply tracking",
@@ -37,19 +37,19 @@ export const TIER_META: Record<TierKey, { label: string; applications: number; f
       "AI research brief per restaurant",
       "Gmail send via your own account",
       "Dashboard & reply tracking",
-      "Auto follow-ups at 21 days",
+      "Follow-up reminders at 21 days",
     ],
   },
   elite: {
     label: "Elite",
-    applications: 100,
+    applications: 120,
     features: [
-      "100 personalised cover emails / month",
+      "120 personalised cover emails / month",
       "AI research brief per restaurant",
       "Gmail send via your own account",
       "Dashboard & reply tracking",
-      "Auto follow-ups at 21 days",
-      "Priority queue & analytics",
+      "Follow-up reminders at 21 days",
+      "Search & add any kitchen worldwide",
     ],
   },
 };

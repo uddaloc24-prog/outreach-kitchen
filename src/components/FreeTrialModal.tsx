@@ -1,34 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
-const PLANS = [
-  {
-    key: "starter",
-    name: "Starter",
-    price: "$29",
-    apps: "30 applications",
-    features: ["30 personalised cover emails", "AI research brief per restaurant", "Gmail send via your own account", "Dashboard & reply tracking"],
-    highlight: false,
-  },
-  {
-    key: "pro",
-    name: "Pro",
-    price: "$49",
-    apps: "50 applications",
-    features: ["50 personalised cover emails", "AI research brief per restaurant", "Gmail send via your own account", "Dashboard & reply tracking", "Follow-up reminders at 21 days"],
-    highlight: true,
-  },
-  {
-    key: "unlimited",
-    name: "Unlimited",
-    price: "$79",
-    apps: "Unlimited applications",
-    features: ["Unlimited personalised cover emails", "AI research brief per restaurant", "Gmail send via your own account", "Dashboard & reply tracking", "Follow-up reminders at 21 days", "Search & add any kitchen worldwide"],
-    highlight: false,
-  },
-];
+interface TierData {
+  display: string;
+  applications: number;
+  features: string[];
+}
+
+interface PricingResponse {
+  tiers: {
+    starter: TierData;
+    pro: TierData;
+    elite: TierData;
+  };
+}
 
 interface FreeTrialModalProps {
   onContinue: () => void;
@@ -36,18 +23,34 @@ interface FreeTrialModalProps {
 
 export function FreeTrialModal({ onContinue }: FreeTrialModalProps) {
   const [loading, setLoading] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<PricingResponse | null>(null);
+
+  useEffect(() => {
+    fetch("/api/pricing")
+      .then((r) => r.json())
+      .then((data: PricingResponse) => setPricing(data))
+      .catch(() => {});
+  }, []);
+
+  const plans = pricing
+    ? [
+        { key: "starter", name: "Starter", highlight: false, ...pricing.tiers.starter },
+        { key: "pro", name: "Pro", highlight: true, ...pricing.tiers.pro },
+        { key: "elite", name: "Elite", highlight: false, ...pricing.tiers.elite },
+      ]
+    : null;
 
   async function handleBuy(planKey: string) {
     setLoading(planKey);
     try {
-      const res = await fetch("/api/stripe/checkout", {
+      const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planKey }),
+        body: JSON.stringify({ tier: planKey }),
       });
-      const data = await res.json() as { url?: string; error?: string };
-      if (data.url) {
-        window.location.href = data.url;
+      const data = (await res.json()) as { checkoutUrl?: string; error?: string };
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
       } else {
         alert(data.error ?? "Something went wrong");
         setLoading(null);
@@ -78,55 +81,62 @@ export function FreeTrialModal({ onContinue }: FreeTrialModalProps) {
           <p className="text-[11px] tracking-[0.2em] uppercase text-muted text-center mb-6">
             Or choose a plan to unlock more
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 border border-warm-border">
-            {PLANS.map((plan, i) => (
-              <div
-                key={plan.key}
-                className={`p-5 sm:p-8 flex flex-col ${i < PLANS.length - 1 ? "border-b sm:border-b-0 sm:border-r border-warm-border" : ""} ${plan.highlight ? "bg-ink text-parchment" : ""}`}
-              >
-                {plan.highlight && (
-                  <p className="text-[10px] tracking-[0.2em] uppercase text-parchment/60 mb-3">
-                    Most popular
-                  </p>
-                )}
-                <p className={`text-[12px] tracking-widest uppercase ${plan.highlight ? "text-parchment/70" : "text-muted"}`}>
-                  {plan.name}
-                </p>
-                <p className={`font-display text-[52px] font-light mt-1 leading-none ${plan.highlight ? "text-parchment" : "text-ink"}`}>
-                  {plan.price}
-                </p>
-                <p className={`text-[12px] mt-1 ${plan.highlight ? "text-parchment/70" : "text-muted"}`}>
-                  {plan.apps}
-                </p>
-                <ul className="mt-6 space-y-2 flex-1">
-                  {plan.features.map((f) => (
-                    <li key={f} className={`text-[12px] flex items-start gap-2 ${plan.highlight ? "text-parchment/80" : "text-muted"}`}>
-                      <span className="mt-0.5 shrink-0">—</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => handleBuy(plan.key)}
-                  disabled={loading !== null}
-                  className={`mt-8 w-full py-3 text-[12px] tracking-wide transition-colors disabled:opacity-50 ${
-                    plan.highlight
-                      ? "bg-parchment text-ink hover:bg-parchment/90"
-                      : "border border-ink text-ink hover:bg-ink hover:text-parchment"
-                  }`}
+
+          {!plans ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 size={16} className="animate-spin text-muted" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 border border-warm-border">
+              {plans.map((plan, i) => (
+                <div
+                  key={plan.key}
+                  className={`p-5 sm:p-8 flex flex-col ${i < plans.length - 1 ? "border-b sm:border-b-0 sm:border-r border-warm-border" : ""} ${plan.highlight ? "bg-ink text-parchment" : ""}`}
                 >
-                  {loading === plan.key ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 size={12} className="animate-spin" />
-                      Redirecting…
-                    </span>
-                  ) : (
-                    `Buy ${plan.name}`
+                  {plan.highlight && (
+                    <p className="text-[10px] tracking-[0.2em] uppercase text-parchment/60 mb-3">
+                      Most popular
+                    </p>
                   )}
-                </button>
-              </div>
-            ))}
-          </div>
+                  <p className={`text-[12px] tracking-widest uppercase ${plan.highlight ? "text-parchment/70" : "text-muted"}`}>
+                    {plan.name}
+                  </p>
+                  <p className={`font-display text-[52px] font-light mt-1 leading-none ${plan.highlight ? "text-parchment" : "text-ink"}`}>
+                    {plan.display}
+                  </p>
+                  <p className={`text-[12px] mt-1 ${plan.highlight ? "text-parchment/70" : "text-muted"}`}>
+                    {plan.applications} applications
+                  </p>
+                  <ul className="mt-6 space-y-2 flex-1">
+                    {plan.features.map((f) => (
+                      <li key={f} className={`text-[12px] flex items-start gap-2 ${plan.highlight ? "text-parchment/80" : "text-muted"}`}>
+                        <span className="mt-0.5 shrink-0">—</span>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => handleBuy(plan.key)}
+                    disabled={loading !== null}
+                    className={`mt-8 w-full py-3 text-[12px] tracking-wide transition-colors disabled:opacity-50 ${
+                      plan.highlight
+                        ? "bg-parchment text-ink hover:bg-parchment/90"
+                        : "border border-ink text-ink hover:bg-ink hover:text-parchment"
+                    }`}
+                  >
+                    {loading === plan.key ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 size={12} className="animate-spin" />
+                        Redirecting…
+                      </span>
+                    ) : (
+                      `Subscribe to ${plan.name}`
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Continue free */}
