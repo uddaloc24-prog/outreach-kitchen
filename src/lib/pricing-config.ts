@@ -71,14 +71,14 @@ const PRICING_STATIC: Record<PricingRegion, Record<TierKey, Omit<TierPricing, "d
     elite:   { amount: 5500, currency: "EUR", display: "€55" },
   },
   india: {
-    starter: { amount: 29900, currency: "INR", display: "₹299" },
-    pro:     { amount: 69900, currency: "INR", display: "₹699" },
-    elite:   { amount: 129900, currency: "INR", display: "₹1,299" },
+    starter: { amount: 89900, currency: "INR", display: "₹899" },
+    pro:     { amount: 149900, currency: "INR", display: "₹1,499" },
+    elite:   { amount: 249900, currency: "INR", display: "₹2,499" },
   },
   row: {
-    starter: { amount: 800, currency: "USD", display: "$8" },
-    pro:     { amount: 1800, currency: "USD", display: "$18" },
-    elite:   { amount: 3300, currency: "USD", display: "$33" },
+    starter: { amount: 1499, currency: "USD", display: "$14.99" },
+    pro:     { amount: 2499, currency: "USD", display: "$24.99" },
+    elite:   { amount: 3999, currency: "USD", display: "$39.99" },
   },
 };
 
