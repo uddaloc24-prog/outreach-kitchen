@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { researchRestaurant } from "@/lib/tools/research-restaurant";
 import { generateResearchBrief } from "@/lib/tools/generate-research-brief";
-import { canSendApplication } from "@/lib/subscription-guard";
+import { canSendApplication, canAccessRestaurant } from "@/lib/subscription-guard";
 import type { ResearchBrief, ParsedProfile } from "@/types";
 
 export async function POST(req: NextRequest) {
@@ -58,6 +58,23 @@ export async function POST(req: NextRequest) {
 
   if (fetchErr || !restaurant) {
     return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
+  }
+
+  // Check restaurant type/tier access
+  const accessCheck = await canAccessRestaurant(userId, {
+    restaurant_type: restaurant.restaurant_type ?? "fine_dining",
+    stars: restaurant.stars,
+    world_50_rank: restaurant.world_50_rank,
+  });
+  if (!accessCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "restaurant_restricted",
+        reason: accessCheck.reason,
+        requiredTier: accessCheck.requiredTier,
+      },
+      { status: 403 }
+    );
   }
 
   const { data: log, error: logErr } = await supabase

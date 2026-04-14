@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { sendEmail } from "@/lib/tools/send-email";
-import { canSendApplication, incrementApplicationCount } from "@/lib/subscription-guard";
+import { canSendApplication, incrementApplicationCount, canAccessRestaurant } from "@/lib/subscription-guard";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -38,6 +38,23 @@ export async function POST(req: NextRequest) {
   const restaurant = log.restaurants;
   if (!restaurant?.careers_email) {
     return NextResponse.json({ error: "No careers email for this restaurant" }, { status: 400 });
+  }
+
+  // Check restaurant type/tier access
+  const accessCheck = await canAccessRestaurant(session.user.email, {
+    restaurant_type: restaurant.restaurant_type ?? "fine_dining",
+    stars: restaurant.stars,
+    world_50_rank: restaurant.world_50_rank,
+  });
+  if (!accessCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "restaurant_restricted",
+        reason: accessCheck.reason,
+        requiredTier: accessCheck.requiredTier,
+      },
+      { status: 403 }
+    );
   }
 
   // Unified quota check — covers institute, Dodo subscription, and legacy Stripe/free-trial

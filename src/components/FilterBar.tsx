@@ -3,17 +3,19 @@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search } from "lucide-react";
-import type { RegionFilter, StarFilter, StatusFilter } from "@/types";
+import type { RegionFilter, StarFilter, StatusFilter, RestaurantTypeFilter } from "@/types";
 
 interface FilterBarProps {
   search: string;
   stars: StarFilter;
   region: RegionFilter;
   status: StatusFilter;
+  restaurantType: RestaurantTypeFilter;
   onSearchChange: (v: string) => void;
   onStarsChange: (v: StarFilter) => void;
   onRegionChange: (v: RegionFilter) => void;
   onStatusChange: (v: StatusFilter) => void;
+  onRestaurantTypeChange: (v: RestaurantTypeFilter) => void;
 }
 
 export function FilterBar({
@@ -21,10 +23,12 @@ export function FilterBar({
   stars,
   region,
   status,
+  restaurantType,
   onSearchChange,
   onStarsChange,
   onRegionChange,
   onStatusChange,
+  onRestaurantTypeChange,
 }: FilterBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 sm:gap-3 py-3 sm:py-4 px-4 sm:px-8 border-b border-warm-border bg-parchment">
@@ -68,6 +72,25 @@ export function FilterBar({
             <SelectItem value="Americas">Americas</SelectItem>
             <SelectItem value="Middle East & Africa">Middle East & Africa</SelectItem>
             <SelectItem value="Oceania">Oceania</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Restaurant Type */}
+      <div className="w-[calc(50%-4px)] sm:w-[160px]">
+        <Select value={restaurantType} onValueChange={(v) => onRestaurantTypeChange(v as RestaurantTypeFilter)}>
+          <SelectTrigger className="text-small">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="fine_dining">Fine Dining</SelectItem>
+            <SelectItem value="casual_dining">Casual Dining</SelectItem>
+            <SelectItem value="bistro">Bistro</SelectItem>
+            <SelectItem value="cafe_bakery">Cafe & Bakery</SelectItem>
+            <SelectItem value="hotel_restaurant">Hotel Restaurant</SelectItem>
+            <SelectItem value="popup">Pop-up</SelectItem>
+            <SelectItem value="local_eatery">Local Eatery</SelectItem>
           </SelectContent>
         </Select>
       </div>

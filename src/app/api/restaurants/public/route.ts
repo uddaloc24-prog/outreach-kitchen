@@ -7,7 +7,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("restaurants")
-    .select("id, name, city, country, stars, head_chef, cuisine_style, website_url, instagram, world_50_rank")
+    .select("id, name, city, country, stars, restaurant_type, head_chef, cuisine_style, website_url, instagram, world_50_rank")
     .order("stars", { ascending: false })
     .order("name");
 

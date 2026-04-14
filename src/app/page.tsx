@@ -9,12 +9,19 @@ import { ResearchPanel } from "@/components/ResearchPanel";
 import { CVUploadModal } from "@/components/CVUploadModal";
 import { FreeTrialModal } from "@/components/FreeTrialModal";
 import { OnboardingView } from "@/components/OnboardingView";
+import { UpgradePromptModal } from "@/components/UpgradePromptModal";
 import { Loader2 } from "lucide-react";
+import {
+  TIER_RESTAURANT_ACCESS,
+  TIER_STARS_ACCESS,
+  type TierKey,
+} from "@/lib/pricing-config";
 import type {
   RestaurantWithOutreach,
   RegionFilter,
   StarFilter,
   StatusFilter,
+  RestaurantTypeFilter,
   UserProfile,
 } from "@/types";
 
@@ -48,6 +55,28 @@ const REGION_TO_COUNTRIES: Record<string, string[]> = {
   Oceania: ["Australia", "New Zealand", "Fiji", "Papua New Guinea"],
 };
 
+/** Client-side mirror of server-side canAccessRestaurant logic */
+function canAccessLocally(
+  tier: TierKey | null,
+  isInstitute: boolean,
+  isFreeTrial: boolean,
+  r: RestaurantWithOutreach
+): boolean {
+  if (isInstitute || isFreeTrial) return true;
+  const t: TierKey = tier ?? "starter";
+  const allowedTypes = TIER_RESTAURANT_ACCESS[t];
+  if (!allowedTypes.includes(r.restaurant_type as never)) return false;
+  const allowedStars = TIER_STARS_ACCESS[t];
+  if (!allowedStars.includes(r.stars)) return false;
+  if (r.world_50_rank !== null && t !== "elite") return false;
+  return true;
+}
+
+function getRequiredTier(r: RestaurantWithOutreach): TierKey {
+  if (r.stars >= 2 || r.world_50_rank !== null) return "elite";
+  return "pro";
+}
+
 export default function HomePage() {
   const { data: session, status: authStatus } = useSession();
 
@@ -63,11 +92,23 @@ export default function HomePage() {
   const [discovering, setDiscovering] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  // Filters — default all stars visible
+  // User tier state
+  const [userTier, setUserTier] = useState<TierKey | null>(null);
+  const [isInstitute, setIsInstitute] = useState(false);
+  const [isFreeTrial, setIsFreeTrial] = useState(false);
+
+  // Upgrade modal state
+  const [upgradeTarget, setUpgradeTarget] = useState<{
+    restaurant: RestaurantWithOutreach;
+    requiredTier: TierKey;
+  } | null>(null);
+
+  // Filters
   const [search, setSearch] = useState("");
   const [stars, setStars] = useState<StarFilter>("all");
   const [region, setRegion] = useState<RegionFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [restaurantType, setRestaurantType] = useState<RestaurantTypeFilter>("all");
 
   async function fetchRestaurants() {
     try {
@@ -87,9 +128,6 @@ export default function HomePage() {
       const profile = data.profile ?? null;
       setUserProfile(profile);
 
-      // Employer → show coming soon (employer dashboard not yet live)
-      // Previously redirected to /employer, now we just let them stay on home
-
       // New user who hasn't chosen a role → redirect to onboard
       if (profile && !profile.has_chosen_role) {
         window.location.href = "/onboard";
@@ -97,6 +135,7 @@ export default function HomePage() {
       }
 
       if (profile?.user_type === "free_trial") {
+        setIsFreeTrial(true);
         if (!localStorage.getItem("onboarding_complete")) {
           setShowOnboarding(true);
         } else if (!localStorage.getItem("free_trial_dismissed")) {
@@ -105,6 +144,22 @@ export default function HomePage() {
       }
     } catch {
       setUserProfile(null);
+    }
+  }
+
+  async function checkSubscription() {
+    try {
+      const res = await fetch("/api/dashboard/stats");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.user_type === "institute") {
+        setIsInstitute(true);
+      }
+      if (data.subscription?.tier) {
+        setUserTier(data.subscription.tier as TierKey);
+      }
+    } catch {
+      // keep defaults
     }
   }
 
@@ -143,7 +198,7 @@ export default function HomePage() {
   useEffect(() => {
     if (authStatus === "loading") return;
     if (!session) { setLoading(false); return; }
-    Promise.all([fetchRestaurants(), checkProfile()]).finally(() => setLoading(false));
+    Promise.all([fetchRestaurants(), checkProfile(), checkSubscription()]).finally(() => setLoading(false));
   }, [authStatus, session]);
 
   // AI-powered search: trigger Groq when user types 2+ chars
@@ -244,9 +299,22 @@ export default function HomePage() {
         const rStatus = r.outreach_log?.status ?? "not_contacted";
         if (rStatus !== statusFilter) return false;
       }
+      if (restaurantType !== "all" && r.restaurant_type !== restaurantType) return false;
       return true;
     });
-  }, [restaurants, search, stars, region, statusFilter]);
+  }, [restaurants, search, stars, region, statusFilter, restaurantType]);
+
+  // Compute lock status for each restaurant
+  const withLockStatus = useMemo(() => {
+    return filtered.map((r) => {
+      const locked = !canAccessLocally(userTier, isInstitute, isFreeTrial, r);
+      return {
+        ...r,
+        locked,
+        lock_reason: locked ? `Upgrade to ${getRequiredTier(r) === "elite" ? "Elite" : "Pro"}` : undefined,
+      };
+    });
+  }, [filtered, userTier, isInstitute, isFreeTrial]);
 
   if (authStatus === "loading" || (session && userProfile === undefined)) {
     return (
@@ -288,6 +356,17 @@ export default function HomePage() {
     return <OnboardingView onComplete={handleOnboardingComplete} />;
   }
 
+  function handleRestaurantSelect(r: RestaurantWithOutreach) {
+    if (r.locked) {
+      setUpgradeTarget({
+        restaurant: r,
+        requiredTier: getRequiredTier(r),
+      });
+    } else {
+      setSelected(r);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-parchment">
       <TopBar />
@@ -309,30 +388,39 @@ export default function HomePage() {
         />
       )}
 
+      {/* Upgrade prompt modal */}
+      {upgradeTarget && (
+        <UpgradePromptModal
+          restaurant={upgradeTarget.restaurant}
+          requiredTier={upgradeTarget.requiredTier}
+          currentTier={userTier ?? (isFreeTrial ? "free_trial" : null)}
+          onClose={() => setUpgradeTarget(null)}
+        />
+      )}
+
       {/* Filter bar */}
       <FilterBar
         search={search}
         stars={stars}
         region={region}
         status={statusFilter}
+        restaurantType={restaurantType}
         onSearchChange={setSearch}
         onStarsChange={setStars}
         onRegionChange={setRegion}
         onStatusChange={setStatusFilter}
+        onRestaurantTypeChange={setRestaurantType}
       />
 
-      {/* Count line */}
-      <div className="px-8 py-3 border-b border-warm-border/50 flex items-center gap-3">
-        <span className="text-small text-muted">
-          {loading ? "Loading…" : `${filtered.length} restaurant${filtered.length !== 1 ? "s" : ""}`}
-        </span>
-        {aiSearching && (
+      {/* AI search indicator */}
+      {aiSearching && (
+        <div className="px-8 py-2 border-b border-warm-border/50">
           <span className="text-small text-muted flex items-center gap-1">
             <Loader2 size={10} className="animate-spin" />
             Searching with AI…
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Table */}
       {loading ? (
@@ -341,8 +429,8 @@ export default function HomePage() {
         </div>
       ) : (
         <RestaurantTable
-          restaurants={filtered}
-          onSelect={(r) => setSelected(r)}
+          restaurants={withLockStatus}
+          onSelect={handleRestaurantSelect}
         />
       )}
 

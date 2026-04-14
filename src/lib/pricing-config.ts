@@ -1,6 +1,21 @@
 import type { PricingRegion } from "./geo-pricing";
+import type { RestaurantType } from "@/types";
 
 export type TierKey = "starter" | "pro" | "elite";
+
+/** Which restaurant types each tier can apply to */
+export const TIER_RESTAURANT_ACCESS: Record<TierKey, RestaurantType[]> = {
+  starter: ["casual_dining", "bistro", "cafe_bakery", "local_eatery"],
+  pro: ["casual_dining", "bistro", "cafe_bakery", "local_eatery", "fine_dining", "hotel_restaurant", "popup"],
+  elite: ["fine_dining", "casual_dining", "bistro", "cafe_bakery", "hotel_restaurant", "popup", "local_eatery"],
+};
+
+/** Which Michelin star levels each tier can access */
+export const TIER_STARS_ACCESS: Record<TierKey, number[]> = {
+  starter: [0],
+  pro: [0, 1],
+  elite: [0, 1, 2, 3],
+};
 
 export interface TierPricing {
   /** Amount in smallest currency unit (cents / paise) */
@@ -23,32 +38,34 @@ export const TIER_META: Record<TierKey, { label: string; applications: number; f
     label: "Starter",
     applications: 30,
     features: [
-      "30 personalised cover emails / month",
+      "30 applications / month",
+      "Casual dining, bistros, cafes & local eateries",
       "AI research brief per restaurant",
+      "Personalised cover email",
       "Gmail send via your own account",
-      "Dashboard & reply tracking",
+      "Dashboard & tracking",
     ],
   },
   pro: {
     label: "Pro",
     applications: 50,
     features: [
-      "50 personalised cover emails / month",
-      "AI research brief per restaurant",
-      "Gmail send via your own account",
-      "Dashboard & reply tracking",
+      "50 applications / month",
+      "Everything in Starter +",
+      "Fine dining, hotels, pop-ups & 1★ Michelin",
       "Follow-up reminders at 21 days",
+      "Reply tracking",
     ],
   },
   elite: {
     label: "Elite",
     applications: 120,
     features: [
-      "120 personalised cover emails / month",
-      "AI research brief per restaurant",
-      "Gmail send via your own account",
-      "Dashboard & reply tracking",
-      "Follow-up reminders at 21 days",
+      "120 applications / month",
+      "ALL restaurant types",
+      "2★ & 3★ Michelin · World's 50 Best",
+      "Auto follow-ups",
+      "Reply tracking",
       "Search & add any kitchen worldwide",
     ],
   },

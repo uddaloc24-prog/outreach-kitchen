@@ -4,13 +4,13 @@ import { TopBar } from "@/components/TopBar";
 import { RestaurantDirectory } from "@/components/RestaurantDirectory";
 
 export const metadata: Metadata = {
-  title: "Restaurant Directory — Michelin-Starred Kitchens Worldwide",
+  title: "Restaurant Directory — Kitchens Worldwide",
   description:
-    "Browse our directory of 40+ Michelin-starred restaurants across Europe, Asia, and the Americas. Filter by city, country, and star rating — then apply directly with a personalised cover email.",
+    "Browse our directory of restaurants and kitchens worldwide — from Michelin-starred fine dining to local eateries. Filter by city, country, star rating, and type — then apply directly with a personalised cover email.",
   openGraph: {
-    title: "Restaurant Directory — Michelin-Starred Kitchens Worldwide",
+    title: "Restaurant Directory — Kitchens Worldwide",
     description:
-      "Browse Michelin-starred restaurants and apply with AI-personalised cover emails.",
+      "Browse restaurants worldwide and apply with AI-personalised cover emails.",
   },
 };
 
@@ -20,6 +20,7 @@ interface PublicRestaurant {
   city: string;
   country: string;
   stars: number;
+  restaurant_type: string | null;
   head_chef: string | null;
   cuisine_style: string | null;
   website_url: string | null;
@@ -33,7 +34,7 @@ export default async function RestaurantsPage() {
   const { data } = await supabase
     .from("restaurants")
     .select(
-      "id, name, city, country, stars, head_chef, cuisine_style, website_url, instagram, world_50_rank"
+      "id, name, city, country, stars, restaurant_type, head_chef, cuisine_style, website_url, instagram, world_50_rank"
     )
     .order("stars", { ascending: false })
     .order("name");
@@ -59,9 +60,9 @@ export default async function RestaurantsPage() {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "ItemList",
-            name: "Michelin-Starred Restaurants",
+            name: "Restaurant Directory",
             description:
-              "Directory of Michelin-starred restaurants worldwide for chef job applications.",
+              "Directory of restaurants and kitchens worldwide for chef job applications.",
             numberOfItems: restaurants.length,
             itemListElement: restaurants.slice(0, 50).map((r, i) => ({
               "@type": "ListItem",

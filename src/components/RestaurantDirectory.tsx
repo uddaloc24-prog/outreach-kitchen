@@ -4,6 +4,17 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Search, Loader2 } from "lucide-react";
+import type { RestaurantType } from "@/types";
+
+const TYPE_LABELS: Record<RestaurantType, string> = {
+  fine_dining: "Fine Dining",
+  casual_dining: "Casual",
+  bistro: "Bistro",
+  cafe_bakery: "Cafe & Bakery",
+  hotel_restaurant: "Hotel",
+  popup: "Pop-up",
+  local_eatery: "Local Eatery",
+};
 
 interface PublicRestaurant {
   id: string;
@@ -11,6 +22,7 @@ interface PublicRestaurant {
   city: string;
   country: string;
   stars: number;
+  restaurant_type: string | null;
   head_chef: string | null;
   cuisine_style: string | null;
   website_url: string | null;
@@ -33,13 +45,14 @@ function StarDisplay({ count }: { count: number }) {
   );
 }
 
-export function RestaurantDirectory({ restaurants: initial, cities: initialCities, countries: initialCountries }: Props) {
+export function RestaurantDirectory({ restaurants: initial }: Props) {
   const { data: session } = useSession();
   const [restaurants, setRestaurants] = useState(initial);
   const [search, setSearch] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("all");
   const [starsFilter, setStarsFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [discoverBatch, setDiscoverBatch] = useState(0);
   const [discovering, setDiscovering] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -70,9 +83,10 @@ export function RestaurantDirectory({ restaurants: initial, cities: initialCitie
       if (cityFilter !== "all" && r.city !== cityFilter) return false;
       if (countryFilter !== "all" && r.country !== countryFilter) return false;
       if (starsFilter !== "all" && r.stars !== parseInt(starsFilter)) return false;
+      if (typeFilter !== "all" && r.restaurant_type !== typeFilter) return false;
       return true;
     });
-  }, [restaurants, search, cityFilter, countryFilter, starsFilter]);
+  }, [restaurants, search, cityFilter, countryFilter, starsFilter, typeFilter]);
 
   // Refresh restaurants from API after discover
   async function refreshRestaurants() {
@@ -134,8 +148,9 @@ export function RestaurantDirectory({ restaurants: initial, cities: initialCitie
           Restaurant Directory
         </h1>
         <p className="text-[14px] sm:text-[15px] text-muted mt-4 max-w-lg">
-          Browse Michelin-starred restaurants worldwide. Sign up to apply with
-          AI-personalised cover emails sent from your Gmail.
+          Browse restaurants and kitchens worldwide — from Michelin-starred fine dining
+          to local eateries. Sign up to apply with AI-personalised cover emails sent
+          from your Gmail.
         </p>
       </div>
 
@@ -163,6 +178,21 @@ export function RestaurantDirectory({ restaurants: initial, cities: initialCitie
           <option value="3">★★★</option>
           <option value="2">★★</option>
           <option value="1">★</option>
+          <option value="0">No stars</option>
+        </select>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="bg-transparent border border-warm-border text-[13px] text-ink px-3 py-2 focus:outline-none"
+        >
+          <option value="all">All types</option>
+          <option value="fine_dining">Fine Dining</option>
+          <option value="casual_dining">Casual Dining</option>
+          <option value="bistro">Bistro</option>
+          <option value="cafe_bakery">Cafe & Bakery</option>
+          <option value="hotel_restaurant">Hotel Restaurant</option>
+          <option value="popup">Pop-up</option>
+          <option value="local_eatery">Local Eatery</option>
         </select>
         <select
           value={countryFilter}
@@ -199,9 +229,6 @@ export function RestaurantDirectory({ restaurants: initial, cities: initialCitie
               </option>
             ))}
         </select>
-        <span className="text-[12px] text-muted ml-auto">
-          {filtered.length} restaurant{filtered.length !== 1 ? "s" : ""}
-        </span>
       </div>
 
       {/* Grid */}
@@ -229,11 +256,18 @@ export function RestaurantDirectory({ restaurants: initial, cities: initialCitie
               <p className="text-[12px] text-muted mt-1">
                 {r.city}, {r.country}
               </p>
-              {r.cuisine_style && (
-                <p className="text-[12px] text-muted mt-0.5 italic">
-                  {r.cuisine_style}
-                </p>
-              )}
+              <div className="flex items-center gap-2 mt-1">
+                {r.cuisine_style && (
+                  <p className="text-[12px] text-muted italic">
+                    {r.cuisine_style}
+                  </p>
+                )}
+                {r.restaurant_type && (
+                  <span className="text-[10px] text-muted/60 uppercase tracking-wide">
+                    {TYPE_LABELS[r.restaurant_type as RestaurantType] ?? ""}
+                  </span>
+                )}
+              </div>
               {r.head_chef && (
                 <p className="text-[12px] text-muted mt-2">
                   Chef: {r.head_chef}

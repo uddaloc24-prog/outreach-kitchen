@@ -1,5 +1,16 @@
 export type StarRating = 0 | 1 | 2 | 3;
 
+export type RestaurantType =
+  | "fine_dining"
+  | "casual_dining"
+  | "bistro"
+  | "cafe_bakery"
+  | "hotel_restaurant"
+  | "popup"
+  | "local_eatery";
+
+export type RestaurantTypeFilter = "all" | RestaurantType;
+
 export type OutreachStatus =
   | "not_contacted"
   | "researching"
@@ -15,6 +26,7 @@ export interface Restaurant {
   city: string;
   country: string;
   stars: StarRating;
+  restaurant_type: RestaurantType;
   world_50_rank: number | null;
   head_chef: string | null;
   cuisine_style: string | null;
@@ -44,6 +56,8 @@ export interface OutreachLog {
 
 export interface RestaurantWithOutreach extends Restaurant {
   outreach_log: OutreachLog | null;
+  locked?: boolean;
+  lock_reason?: string;
 }
 
 export interface ResearchBrief {

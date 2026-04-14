@@ -1,10 +1,21 @@
 import { createServerSupabase } from "./supabase-server";
+import {
+  type TierKey,
+  TIER_RESTAURANT_ACCESS,
+  TIER_STARS_ACCESS,
+} from "./pricing-config";
 
 export interface SubscriptionStatus {
   allowed: boolean;
   remaining: number;
   tier: string | null;
   status: string | null;
+}
+
+export interface RestaurantAccessCheck {
+  allowed: boolean;
+  reason?: "tier_too_low" | "type_restricted" | "stars_restricted";
+  requiredTier?: TierKey;
 }
 
 /**
@@ -118,4 +129,74 @@ export async function incrementApplicationCount(userEmail: string): Promise<bool
     .single();
 
   return !!updated;
+}
+
+/**
+ * Check whether a user's tier allows access to a specific restaurant.
+ * Returns { allowed: true } or { allowed: false, reason, requiredTier }.
+ */
+export async function canAccessRestaurant(
+  userEmail: string,
+  restaurant: { restaurant_type: string; stars: number; world_50_rank: number | null }
+): Promise<RestaurantAccessCheck> {
+  const supabase = createServerSupabase();
+
+  // 1. Institute users → always allowed
+  const { data: allowed } = await supabase
+    .from("allowed_users")
+    .select("email")
+    .eq("email", userEmail)
+    .single();
+
+  if (allowed) return { allowed: true };
+
+  // 2. Check user profile for free trial → allowed for any restaurant
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("user_type")
+    .eq("user_id", userEmail)
+    .single();
+
+  if (profile?.user_type === "free_trial") return { allowed: true };
+
+  // 3. Check Dodo subscription → tier-based access
+  const { data: sub } = await supabase
+    .from("user_subscriptions")
+    .select("tier, status")
+    .eq("user_email", userEmail)
+    .eq("status", "active")
+    .single();
+
+  const tier: TierKey = (sub?.tier as TierKey) ?? "starter";
+
+  // Check restaurant type access
+  const allowedTypes = TIER_RESTAURANT_ACCESS[tier];
+  if (!allowedTypes.includes(restaurant.restaurant_type as never)) {
+    return {
+      allowed: false,
+      reason: "type_restricted",
+      requiredTier: tier === "starter" ? "pro" : "elite",
+    };
+  }
+
+  // Check Michelin stars access
+  const allowedStars = TIER_STARS_ACCESS[tier];
+  if (!allowedStars.includes(restaurant.stars)) {
+    return {
+      allowed: false,
+      reason: "stars_restricted",
+      requiredTier: restaurant.stars >= 2 ? "elite" : "pro",
+    };
+  }
+
+  // Check World's 50 Best → requires Elite
+  if (restaurant.world_50_rank !== null && tier !== "elite") {
+    return {
+      allowed: false,
+      reason: "tier_too_low",
+      requiredTier: "elite",
+    };
+  }
+
+  return { allowed: true };
 }

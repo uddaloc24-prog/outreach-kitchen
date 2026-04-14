@@ -74,6 +74,9 @@ export function FreeTrialModal({ onContinue }: FreeTrialModalProps) {
             Send one personalised cover email to any kitchen — no payment needed.
             Upgrade any time to send to more.
           </p>
+          <p className="text-[11px] text-muted/70 mt-2">
+            Apply to any restaurant — no restrictions on your free trial.
+          </p>
         </div>
 
         {/* Plans */}

@@ -3,7 +3,18 @@
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { starsDisplay } from "@/lib/utils";
-import type { RestaurantWithOutreach } from "@/types";
+import { Lock } from "lucide-react";
+import type { RestaurantWithOutreach, RestaurantType } from "@/types";
+
+const TYPE_LABELS: Record<RestaurantType, string> = {
+  fine_dining: "Fine Dining",
+  casual_dining: "Casual",
+  bistro: "Bistro",
+  cafe_bakery: "Cafe & Bakery",
+  hotel_restaurant: "Hotel",
+  popup: "Pop-up",
+  local_eatery: "Local Eatery",
+};
 
 interface RestaurantTableProps {
   restaurants: RestaurantWithOutreach[];
@@ -28,6 +39,7 @@ export function RestaurantTable({ restaurants, onSelect }: RestaurantTableProps)
           <tr className="border-b border-warm-border">
             <th className="text-left px-8 py-3 text-label text-muted w-[80px]">Stars</th>
             <th className="text-left px-4 py-3 text-label text-muted">Restaurant</th>
+            <th className="text-left px-4 py-3 text-label text-muted w-[120px]">Type</th>
             <th className="text-left px-4 py-3 text-label text-muted w-[160px]">City</th>
             <th className="text-left px-4 py-3 text-label text-muted w-[200px]">Head Chef</th>
             <th className="text-left px-4 py-3 text-label text-muted w-[160px]">Status</th>
@@ -38,11 +50,12 @@ export function RestaurantTable({ restaurants, onSelect }: RestaurantTableProps)
           {restaurants.map((restaurant, i) => {
             const status = restaurant.outreach_log?.status ?? "not_contacted";
             const delay = Math.min(i * 0.03, 0.5);
+            const isLocked = restaurant.locked === true;
             return (
               <tr
                 key={restaurant.id}
                 onClick={() => onSelect(restaurant)}
-                className="border-b border-warm-border/50 hover:bg-surface transition-colors cursor-pointer group"
+                className={`border-b border-warm-border/50 hover:bg-surface transition-colors cursor-pointer group ${isLocked ? "opacity-70" : ""}`}
                 style={{ animationDelay: `${delay}s` }}
               >
                 <td className="px-8 py-4">
@@ -51,12 +64,20 @@ export function RestaurantTable({ restaurants, onSelect }: RestaurantTableProps)
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="font-display text-[18px] font-semibold text-ink group-hover:text-rust transition-colors">
-                    {restaurant.name}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-display text-[18px] font-semibold text-ink group-hover:text-rust transition-colors">
+                      {restaurant.name}
+                    </span>
+                    {isLocked && <Lock size={14} className="text-muted shrink-0" />}
+                  </div>
                   {restaurant.cuisine_style && (
                     <p className="text-small text-muted mt-0.5">{restaurant.cuisine_style}</p>
                   )}
+                </td>
+                <td className="px-4 py-4">
+                  <span className="text-[11px] tracking-wide text-muted uppercase">
+                    {TYPE_LABELS[restaurant.restaurant_type] ?? "—"}
+                  </span>
                 </td>
                 <td className="px-4 py-4">
                   <span className="text-body text-ink">{restaurant.city}</span>
@@ -65,10 +86,24 @@ export function RestaurantTable({ restaurants, onSelect }: RestaurantTableProps)
                   <span className="text-body font-medium text-ink">{restaurant.head_chef ?? "—"}</span>
                 </td>
                 <td className="px-4 py-4">
-                  <StatusBadge status={status} />
+                  {isLocked ? (
+                    <span className="text-[11px] text-muted italic">Locked</span>
+                  ) : (
+                    <StatusBadge status={status} />
+                  )}
                 </td>
                 <td className="px-8 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                  <ActionButton status={status} onClick={() => onSelect(restaurant)} />
+                  {isLocked ? (
+                    <Button
+                      variant="gold"
+                      size="sm"
+                      onClick={() => onSelect(restaurant)}
+                    >
+                      Upgrade →
+                    </Button>
+                  ) : (
+                    <ActionButton status={status} onClick={() => onSelect(restaurant)} />
+                  )}
                 </td>
               </tr>
             );
@@ -80,11 +115,12 @@ export function RestaurantTable({ restaurants, onSelect }: RestaurantTableProps)
       <div className="md:hidden divide-y divide-warm-border/50">
         {restaurants.map((restaurant) => {
           const status = restaurant.outreach_log?.status ?? "not_contacted";
+          const isLocked = restaurant.locked === true;
           return (
             <div
               key={restaurant.id}
               onClick={() => onSelect(restaurant)}
-              className="px-4 py-4 active:bg-surface transition-colors cursor-pointer"
+              className={`px-4 py-4 active:bg-surface transition-colors cursor-pointer ${isLocked ? "opacity-70" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -95,18 +131,35 @@ export function RestaurantTable({ restaurants, onSelect }: RestaurantTableProps)
                     <span className="font-display text-[16px] font-semibold text-ink truncate">
                       {restaurant.name}
                     </span>
+                    {isLocked && <Lock size={12} className="text-muted shrink-0" />}
                   </div>
                   <p className="text-[12px] text-muted mt-1">
                     {restaurant.city}, {restaurant.country}
                     {restaurant.head_chef && ` · ${restaurant.head_chef}`}
                   </p>
-                  {restaurant.cuisine_style && (
-                    <p className="text-[11px] text-muted/70 mt-0.5">{restaurant.cuisine_style}</p>
-                  )}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {restaurant.cuisine_style && (
+                      <p className="text-[11px] text-muted/70">{restaurant.cuisine_style}</p>
+                    )}
+                    <span className="text-[10px] text-muted uppercase tracking-wide">
+                      {TYPE_LABELS[restaurant.restaurant_type] ?? ""}
+                    </span>
+                  </div>
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-2">
-                  <StatusBadge status={status} />
-                  <ActionButton status={status} onClick={() => onSelect(restaurant)} />
+                  {isLocked ? (
+                    <>
+                      <span className="text-[10px] text-muted italic">Locked</span>
+                      <Button variant="gold" size="sm" onClick={() => onSelect(restaurant)}>
+                        Upgrade →
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <StatusBadge status={status} />
+                      <ActionButton status={status} onClick={() => onSelect(restaurant)} />
+                    </>
+                  )}
                 </div>
               </div>
             </div>
