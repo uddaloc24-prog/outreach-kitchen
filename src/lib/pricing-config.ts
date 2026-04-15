@@ -118,7 +118,7 @@ export function getPricing(): Record<PricingRegion, RegionPricing> {
     for (const tier of Object.keys(PRICING_STATIC[region]) as TierKey[]) {
       result[region][tier] = {
         ...PRICING_STATIC[region][tier],
-        dodoProductId: process.env[PRODUCT_ID_KEYS[region][tier]] ?? "",
+        dodoProductId: (process.env[PRODUCT_ID_KEYS[region][tier]] ?? "").trim(),
       };
     }
   }

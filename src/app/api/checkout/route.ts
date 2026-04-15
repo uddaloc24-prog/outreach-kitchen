@@ -37,9 +37,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const apiKey = process.env.DODO_TEST_MODE === "true"
+  const apiKey = (process.env.DODO_TEST_MODE === "true"
     ? process.env.DODO_API_KEY_TEST
-    : process.env.DODO_API_KEY;
+    : process.env.DODO_API_KEY)?.trim();
 
   if (!apiKey) {
     return NextResponse.json(
