@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
-import Groq from "groq-sdk";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { callGroq } from "@/lib/groq";
 
 interface GroqRestaurant {
   name: string;
@@ -59,19 +57,9 @@ async function extractFromResults(
     .map((r) => `Title: ${r.title}\nURL: ${r.url}\nSnippet: ${r.content}`)
     .join("\n\n---\n\n");
 
-  const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    max_tokens: 2048,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a data extractor for a chef's job application tool. Extract restaurant information ONLY from the provided search results. Do NOT invent or add restaurants not mentioned in the results. Return valid JSON only.",
-      },
-      {
-        role: "user",
-        content: `The user searched for: "${query}"
+  const systemPrompt = "You are a data extractor for a chef's job application tool. Extract restaurant information ONLY from the provided search results. Do NOT invent or add restaurants not mentioned in the results. Return valid JSON only.";
+
+  const userPrompt = `The user searched for: "${query}"
 
 Here are real web search results:
 
@@ -107,12 +95,9 @@ Return a JSON object with a "restaurants" array. Each item must have exactly the
   "website_url": "website URL from results if available, otherwise empty string",
   "careers_email": "careers or contact email if mentioned, otherwise empty string",
   "world_50_rank": integer if in World's 50 Best, otherwise null
-}`,
-      },
-    ],
-  });
+}`;
 
-  const text = response.choices[0]?.message?.content ?? '{"restaurants":[]}';
+  const text = await callGroq(systemPrompt, userPrompt, 2048);
   try {
     const parsed = JSON.parse(text) as { restaurants?: GroqRestaurant[] };
     return Array.isArray(parsed.restaurants) ? parsed.restaurants : [];

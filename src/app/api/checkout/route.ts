@@ -83,8 +83,11 @@ export async function POST(request: NextRequest) {
   if (!response.ok) {
     const errorData = await response.text();
     console.error("Dodo checkout error:", response.status, errorData);
+    console.error("Dodo request URL:", `${dodoBaseUrl()}/checkouts`);
+    console.error("Dodo product_id:", priceConfig.dodoProductId);
+    console.error("Dodo region:", region, "tier:", tier);
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: `Failed to create checkout session: ${response.status} — ${errorData}` },
       { status: 502 },
     );
   }

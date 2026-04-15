@@ -68,11 +68,11 @@ export function FreeTrialModal({ onContinue }: FreeTrialModalProps) {
         <div className="px-5 sm:px-10 pt-6 sm:pt-10 pb-5 sm:pb-6 border-b border-warm-border text-center">
           <p className="text-[11px] tracking-[0.2em] uppercase text-muted mb-2">Free Trial</p>
           <h2 className="font-display text-[24px] sm:text-[36px] font-light text-ink leading-tight">
-            You have 1 free application
+            You have 3 free applications
           </h2>
           <p className="text-[13px] sm:text-body text-muted mt-3 max-w-lg mx-auto">
-            Send one personalised cover email to any kitchen — no payment needed.
-            Upgrade any time to send to more.
+            Send three personalised cover emails to any kitchen — no payment needed.
+            Includes one application to a 3-star Michelin restaurant. Upgrade any time for more.
           </p>
           <p className="text-[11px] text-muted/70 mt-2">
             Apply to any restaurant — no restrictions on your free trial.
@@ -148,7 +148,7 @@ export function FreeTrialModal({ onContinue }: FreeTrialModalProps) {
             onClick={onContinue}
             className="text-[13px] text-muted hover:text-ink transition-colors underline underline-offset-4"
           >
-            Continue with 1 free email →
+            Continue with 3 free emails →
           </button>
         </div>
       </div>

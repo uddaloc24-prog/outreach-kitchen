@@ -32,6 +32,18 @@ export async function GET() {
     ? subscription.applications_limit - subscription.applications_used
     : profile?.applications_remaining ?? null;
 
+  // Count 3-star Michelin apps sent (for free trial limit display)
+  let threeStarSent = 0;
+  if (profile?.user_type === "free_trial") {
+    const { count } = await supabase
+      .from("outreach_log")
+      .select("id, restaurants!inner(stars)", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("status", "sent")
+      .eq("restaurants.stars", 3);
+    threeStarSent = count ?? 0;
+  }
+
   return NextResponse.json({
     total: total ?? 0,
     sent: counts["sent"] ?? 0,
@@ -42,5 +54,6 @@ export async function GET() {
     user_type: profile?.user_type ?? "institute",
     applications_remaining: applicationsRemaining,
     subscription: subscription ?? null,
+    three_star_sent: threeStarSent,
   });
 }

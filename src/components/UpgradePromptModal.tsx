@@ -31,7 +31,7 @@ function restaurantDescription(r: RestaurantWithOutreach): string {
 function currentPlanDescription(tier: string | null): string {
   if (tier === "starter") return "Starter plan covers casual dining, bistros, cafes, and local eateries";
   if (tier === "pro") return "Pro plan covers up to 1★ Michelin restaurants";
-  if (tier === "free_trial") return "Free trial covers any restaurant (1 application)";
+  if (tier === "free_trial") return "Free trial includes 3 applications (max 1 three-star Michelin)";
   return "Your current plan covers casual dining, bistros, and local eateries";
 }
 

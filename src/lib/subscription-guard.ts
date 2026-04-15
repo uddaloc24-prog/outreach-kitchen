@@ -132,6 +132,23 @@ export async function incrementApplicationCount(userEmail: string): Promise<bool
 }
 
 /**
+ * Count how many 3-star Michelin restaurants a user has already sent to.
+ * Used to enforce the free trial limit of 1 three-star application.
+ */
+async function countThreeStarAppsSent(
+  supabase: ReturnType<typeof createServerSupabase>,
+  userEmail: string
+): Promise<number> {
+  const { count } = await supabase
+    .from("outreach_log")
+    .select("id, restaurants!inner(stars)", { count: "exact", head: true })
+    .eq("user_id", userEmail)
+    .eq("status", "sent")
+    .eq("restaurants.stars", 3);
+  return count ?? 0;
+}
+
+/**
  * Check whether a user's tier allows access to a specific restaurant.
  * Returns { allowed: true } or { allowed: false, reason, requiredTier }.
  */
@@ -157,7 +174,20 @@ export async function canAccessRestaurant(
     .eq("user_id", userEmail)
     .single();
 
-  if (profile?.user_type === "free_trial") return { allowed: true };
+  if (profile?.user_type === "free_trial") {
+    // Free trial: allow all restaurants EXCEPT if they've already used their 1 three-star slot
+    if (restaurant.stars === 3) {
+      const threeStarCount = await countThreeStarAppsSent(supabase, userEmail);
+      if (threeStarCount >= 1) {
+        return {
+          allowed: false,
+          reason: "stars_restricted",
+          requiredTier: "elite",
+        };
+      }
+    }
+    return { allowed: true };
+  }
 
   // 3. Check Dodo subscription → tier-based access
   const { data: sub } = await supabase

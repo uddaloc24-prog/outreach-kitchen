@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
-import Groq from "groq-sdk";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { callGroq } from "@/lib/groq";
 
 const VALID_TYPES = [
   "fine_dining", "casual_dining", "bistro", "cafe_bakery",
@@ -194,19 +192,9 @@ async function extractRestaurants(
     .map((r) => `Title: ${r.title}\nURL: ${r.url}\nSnippet: ${r.content}`)
     .join("\n\n---\n\n");
 
-  const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    max_tokens: 4096,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a data extractor for a chef job application platform. Extract restaurant information ONLY from the provided search results. Return valid JSON.",
-      },
-      {
-        role: "user",
-        content: `Search query: "${query}"
+  const systemPrompt = "You are a data extractor for a chef job application platform. Extract restaurant information ONLY from the provided search results. Return valid JSON.";
+
+  const userPrompt = `Search query: "${query}"
 
 Web search results:
 
@@ -249,12 +237,9 @@ Classification guide for restaurant_type:
 - local_eatery: Neighbourhood spots, hidden gems, street food venues
 
 Return: { "restaurants": [...] }
-Extract as many as you can find. If none qualify, return empty array.`,
-      },
-    ],
-  });
+Extract as many as you can find. If none qualify, return empty array.`;
 
-  const text = response.choices[0]?.message?.content ?? '{"restaurants":[]}';
+  const text = await callGroq(systemPrompt, userPrompt, 4096);
   try {
     const parsed = JSON.parse(text) as { restaurants?: GroqRestaurant[] };
     return Array.isArray(parsed.restaurants) ? parsed.restaurants : [];
@@ -300,14 +285,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (allResults.length === 0) {
-    return NextResponse.json({ added: 0 });
+    return NextResponse.json({ added: 0, batch });
   }
 
   // Extract restaurants from combined results
   const found = await extractRestaurants(queries.join(" + "), allResults);
 
   if (found.length === 0) {
-    return NextResponse.json({ added: 0 });
+    return NextResponse.json({ added: 0, batch });
   }
 
   const supabase = createServerSupabase();
@@ -346,6 +331,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ added: data?.length ?? 0, batch });
   } catch {
-    return NextResponse.json({ added: 0 });
+    return NextResponse.json({ added: 0, batch });
   }
 }

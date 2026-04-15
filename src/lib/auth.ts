@@ -54,7 +54,7 @@ export const authOptions: NextAuthOptions = {
       // ignoreDuplicates: true leaves paid/existing profiles untouched.
       try {
         await supabase.from("user_profiles").upsert(
-          { user_id: user.email, user_type: "free_trial", applications_remaining: 1, has_chosen_role: false },
+          { user_id: user.email, user_type: "free_trial", applications_remaining: 3, has_chosen_role: false },
           { onConflict: "user_id", ignoreDuplicates: true }
         );
       } catch {

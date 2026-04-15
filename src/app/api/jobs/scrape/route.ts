@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
-import Groq from "groq-sdk";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { callGroq } from "@/lib/groq";
 
 const COOLDOWN_MS = 15 * 60 * 1000; // 15 minute cooldown between scrapes
 const BATCH_SIZE = 5; // parallel source-URL re-verifications
@@ -96,19 +94,9 @@ async function extractJobListings(results: TavilyResult[]): Promise<GroqJobListi
     .map((r) => `Title: ${r.title}\nURL: ${r.url}\nSnippet: ${r.content}`)
     .join("\n\n---\n\n");
 
-  const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    max_tokens: 8192,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a data extractor for a chef job search tool. Extract active culinary job listings ONLY from the provided search results. Do NOT invent listings not mentioned in the results. Return valid JSON only.",
-      },
-      {
-        role: "user",
-        content: `Here are real web search results about culinary job openings:
+  const systemPrompt = "You are a data extractor for a chef job search tool. Extract active culinary job listings ONLY from the provided search results. Do NOT invent listings not mentioned in the results. Return valid JSON only.";
+
+  const userPrompt = `Here are real web search results about culinary job openings:
 
 ${context}
 
@@ -147,12 +135,9 @@ Return a JSON object with a "job_listings" array. Each item:
   "cuisine_style": "cuisine type if mentioned e.g. French, Japanese, Nordic, otherwise null",
   "world_50_rank": integer rank if in World's 50 Best, otherwise null,
   "expires_at": "ISO date string if closing date mentioned, otherwise null"
-}`,
-      },
-    ],
-  });
+}`;
 
-  const text = response.choices[0]?.message?.content ?? '{"job_listings":[]}';
+  const text = await callGroq(systemPrompt, userPrompt, 8192);
   try {
     const parsed = JSON.parse(text) as { job_listings?: GroqJobListing[] };
     return Array.isArray(parsed.job_listings) ? parsed.job_listings : [];
@@ -217,29 +202,11 @@ async function isListingStillActive(
     // Truncate to ~3000 chars to stay within token budget
     const snippet = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 3000);
 
-    const check = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 64,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: "You check whether a job listing is still open. Return JSON only.",
-        },
-        {
-          role: "user",
-          content: `Does the following webpage still show an open job listing for "${jobTitle}" at "${restaurantName}"?
-
-Page content:
-${snippet}
-
-Return: { "still_open": true } or { "still_open": false }
-If uncertain, return true.`,
-        },
-      ],
-    });
-
-    const txt = check.choices[0]?.message?.content ?? '{"still_open":true}';
+    const txt = await callGroq(
+      "You check whether a job listing is still open. Return JSON only.",
+      `Does the following webpage still show an open job listing for "${jobTitle}" at "${restaurantName}"?\n\nPage content:\n${snippet}\n\nReturn: { "still_open": true } or { "still_open": false }\nIf uncertain, return true.`,
+      64
+    );
     const parsed = JSON.parse(txt) as { still_open?: boolean };
     return parsed.still_open !== false;
   } catch {

@@ -4,64 +4,32 @@ import { authOptions } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { generateSlug } from "@/lib/slug";
 import Groq from "groq-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import type { ParsedProfile } from "@/types";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const MISTRAL_KEY = process.env.MISTRAL_API_KEY;
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  // Try pdf-parse v2 (PDFParse class, getText() returns a string directly)
-  try {
-    const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    const text = String(result);
-    if (text.trim().length > 10) return text;
-  } catch {
-    // pdf-parse failed — fall through to raw extraction
-  }
-
-  // Fallback: extract readable text directly from PDF binary
-  const raw = buffer
-    .toString("latin1")
-    .replace(/\\n/g, "\n")
-    .replace(/\\r/g, "");
-
-  // Extract text between BT...ET blocks (PDF text objects)
-  const btBlocks = raw.match(/BT[\s\S]*?ET/g) || [];
-  const lines: string[] = [];
-  for (const block of btBlocks) {
-    const tjMatches = block.match(/\(([^)]*)\)\s*Tj/g) || [];
-    const tdMatches = block.match(/\[([^\]]*)\]\s*TJ/g) || [];
-    for (const m of tjMatches) {
-      const inner = m.match(/\(([^)]*)\)/)?.[1];
-      if (inner) lines.push(inner);
-    }
-    for (const m of tdMatches) {
-      const parts = m.match(/\(([^)]*)\)/g) || [];
-      const joined = parts.map((p) => p.slice(1, -1)).join("");
-      if (joined) lines.push(joined);
-    }
-  }
-
-  const extracted = lines.join("\n").trim();
-  if (extracted.length < 20) {
+  // unpdf — pure JS, works in serverless (Vercel) without native modules
+  const { extractText } = await import("unpdf");
+  const result = await extractText(new Uint8Array(buffer), { mergePages: true });
+  const text = typeof result === "string"
+    ? result
+    : (result as { text?: string })?.text ?? "";
+  if (text.trim().length < 20) {
     throw new Error("Could not extract text from this PDF");
   }
-  return extracted;
+  return text;
 }
 
-async function parseCvWithClaude(cv_text: string): Promise<ParsedProfile> {
-  const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    max_tokens: 2048,
-    messages: [
-      {
-        role: "system",
-        content: "You are a professional CV parser for fine dining and hospitality careers. Extract structured information from the CV text. Return valid JSON only — no preamble, no markdown code blocks.",
-      },
-      {
-        role: "user",
-        content: `Parse this CV and return a JSON object with exactly these fields:
+const CV_SYSTEM_PROMPT =
+  "You are a professional CV parser for fine dining and hospitality careers. Extract structured information from the CV text. Return valid JSON only — no preamble, no markdown code blocks.";
+
+function buildCvUserPrompt(cv_text: string): string {
+  return `Parse this CV and return a JSON object with exactly these fields:
 
 {
   "name": "Full name",
@@ -83,31 +51,136 @@ async function parseCvWithClaude(cv_text: string): Promise<ParsedProfile> {
 }
 
 CV TEXT:
-${cv_text}`,
-      },
-    ],
-  });
+${cv_text}`;
+}
 
-  const text = response.choices[0]?.message?.content ?? "";
-  // Strip markdown code fences and any leading/trailing non-JSON chars
-  const clean = text
+function extractJson(raw: string): ParsedProfile {
+  const clean = raw
     .replace(/^```(?:json)?\s*\n?/, "")
     .replace(/\n?\s*```$/, "")
     .trim();
-
-  // Find the first { and last } to extract the JSON object
   const start = clean.indexOf("{");
   const end = clean.lastIndexOf("}");
   if (start === -1 || end === -1) {
     throw new Error("CV parsing returned an invalid response — please try again");
   }
-  const jsonStr = clean.slice(start, end + 1);
+  return JSON.parse(clean.slice(start, end + 1)) as ParsedProfile;
+}
 
-  try {
-    return JSON.parse(jsonStr) as ParsedProfile;
-  } catch {
-    throw new Error("CV parsing returned an invalid response — please try again");
+// ── Provider 1: Groq (free — 100k tokens/day) ───────────────────────
+async function parseCvWithGroq(cv_text: string): Promise<ParsedProfile> {
+  const response = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    max_tokens: 2048,
+    messages: [
+      { role: "system", content: CV_SYSTEM_PROMPT },
+      { role: "user", content: buildCvUserPrompt(cv_text) },
+    ],
+  });
+  return extractJson(response.choices[0]?.message?.content ?? "");
+}
+
+// ── Provider 2: Google Gemini (free — 1M tokens/day) ─────────────────
+async function callGeminiOnce(cv_text: string): Promise<ParsedProfile> {
+  if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY not configured");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: CV_SYSTEM_PROMPT }] },
+      contents: [{ parts: [{ text: buildCvUserPrompt(cv_text) }] }],
+      generationConfig: { maxOutputTokens: 2048, temperature: 0.1 },
+    }),
+    signal: AbortSignal.timeout(45000),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini ${res.status}: ${err.slice(0, 120)}`);
   }
+  const data = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return extractJson(text);
+}
+
+async function parseCvWithGemini(cv_text: string): Promise<ParsedProfile> {
+  // Gemini free tier has per-minute limits; retry once after a short wait
+  try {
+    return await callGeminiOnce(cv_text);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("429")) {
+      await new Promise((r) => setTimeout(r, 35000)); // wait 35s for rate limit reset
+      return await callGeminiOnce(cv_text);
+    }
+    throw err;
+  }
+}
+
+// ── Provider 3: Mistral (free tier) ──────────────────────────────────
+async function parseCvWithMistral(cv_text: string): Promise<ParsedProfile> {
+  if (!MISTRAL_KEY) throw new Error("MISTRAL_API_KEY not configured");
+  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${MISTRAL_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "mistral-small-latest",
+      max_tokens: 2048,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: CV_SYSTEM_PROMPT },
+        { role: "user", content: buildCvUserPrompt(cv_text) },
+      ],
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Mistral ${res.status}: ${err.slice(0, 120)}`);
+  }
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  return extractJson(data.choices?.[0]?.message?.content ?? "");
+}
+
+// ── Provider 4: Anthropic Claude (PAID — last resort only) ──────────
+async function parseCvWithAnthropic(cv_text: string): Promise<ParsedProfile> {
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 2048,
+    system: CV_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: buildCvUserPrompt(cv_text) }],
+  });
+  const block = response.content[0];
+  const text = block.type === "text" ? block.text : "";
+  return extractJson(text);
+}
+
+// ── Fallback: Groq → Gemini → Mistral → Anthropic (last) ───────────
+async function parseCv(cv_text: string): Promise<ParsedProfile> {
+  const providers = [
+    { name: "Groq", fn: parseCvWithGroq },
+    { name: "Gemini", fn: parseCvWithGemini },
+    { name: "Mistral", fn: parseCvWithMistral },
+    { name: "Anthropic", fn: parseCvWithAnthropic },
+  ];
+  let lastErr: Error | null = null;
+  for (const { name, fn } of providers) {
+    try {
+      return await fn(cv_text);
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      console.error(`[parseCv] ${name} failed:`, lastErr.message);
+    }
+  }
+  throw lastErr ?? new Error("All AI providers failed — please try again later");
 }
 
 export async function POST(req: NextRequest) {
@@ -180,10 +253,12 @@ export async function POST(req: NextRequest) {
 
     let parsed: ParsedProfile;
     try {
-      parsed = await parseCvWithClaude(cv_text);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to parse CV";
-      return NextResponse.json({ error: message }, { status: 500 });
+      parsed = await parseCv(cv_text);
+    } catch {
+      return NextResponse.json(
+        { error: "AI services are temporarily busy. Please try again in a minute." },
+        { status: 503 }
+      );
     }
 
     const supabase = createServerSupabase();

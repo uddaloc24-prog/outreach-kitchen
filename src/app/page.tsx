@@ -60,9 +60,15 @@ function canAccessLocally(
   tier: TierKey | null,
   isInstitute: boolean,
   isFreeTrial: boolean,
-  r: RestaurantWithOutreach
+  r: RestaurantWithOutreach,
+  threeStarSent: number
 ): boolean {
-  if (isInstitute || isFreeTrial) return true;
+  if (isInstitute) return true;
+  if (isFreeTrial) {
+    // Free trial: only block 3-star if they've already used their 1 slot
+    if (r.stars === 3 && threeStarSent >= 1) return false;
+    return true;
+  }
   const t: TierKey = tier ?? "starter";
   const allowedTypes = TIER_RESTAURANT_ACCESS[t];
   if (!allowedTypes.includes(r.restaurant_type as never)) return false;
@@ -98,6 +104,7 @@ export default function HomePage() {
   const [userTier, setUserTier] = useState<TierKey | null>(null);
   const [isInstitute, setIsInstitute] = useState(false);
   const [isFreeTrial, setIsFreeTrial] = useState(false);
+  const [threeStarSent, setThreeStarSent] = useState(0);
 
   // Upgrade modal state
   const [upgradeTarget, setUpgradeTarget] = useState<{
@@ -159,6 +166,9 @@ export default function HomePage() {
       }
       if (data.subscription?.tier) {
         setUserTier(data.subscription.tier as TierKey);
+      }
+      if (data.three_star_sent !== undefined) {
+        setThreeStarSent(data.three_star_sent);
       }
     } catch {
       // keep defaults
@@ -318,14 +328,14 @@ export default function HomePage() {
   // Compute lock status for each restaurant
   const withLockStatus = useMemo(() => {
     return filtered.map((r) => {
-      const locked = !canAccessLocally(userTier, isInstitute, isFreeTrial, r);
+      const locked = !canAccessLocally(userTier, isInstitute, isFreeTrial, r, threeStarSent);
       return {
         ...r,
         locked,
         lock_reason: locked ? `Upgrade to ${getRequiredTier(r) === "elite" ? "Elite" : "Pro"}` : undefined,
       };
     });
-  }, [filtered, userTier, isInstitute, isFreeTrial]);
+  }, [filtered, userTier, isInstitute, isFreeTrial, threeStarSent]);
 
   if (authStatus === "loading" || (session && userProfile === undefined)) {
     return (
