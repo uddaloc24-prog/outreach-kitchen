@@ -64,6 +64,9 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
+      allowed_payment_method_types: region === "india"
+        ? ["credit", "debit", "upi_collect", "google_pay", "paypal"]
+        : ["credit", "debit", "apple_pay", "google_pay", "paypal", "klarna", "cashapp"],
       customer: {
         email: session.user.email,
         name: session.user.name ?? "",
