@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPolicyPage() {
-  const lastUpdated = "April 14, 2026";
+  const lastUpdated = "April 17, 2026";
 
   return (
     <main className="min-h-screen bg-parchment">
@@ -86,15 +86,40 @@ export default function PrivacyPolicyPage() {
               >
                 Google API Services User Data Policy
               </a>
-              , including the Limited Use requirements. Specifically:
+              , including the Limited Use requirements.
             </p>
-            <ul className="list-disc pl-6 space-y-2 mt-3">
-              <li>We only request access to Gmail scopes necessary for sending emails on your behalf.</li>
-              <li>We do not use Gmail data for advertising or marketing purposes.</li>
-              <li>We do not sell or transfer Gmail data to third parties.</li>
-              <li>We do not allow humans to read your email content, except where you have given explicit
-                consent, where it is required for security purposes, or to comply with applicable law.</li>
-              <li>Gmail OAuth tokens are stored securely and encrypted at rest in our database.</li>
+            <p className="mt-3 font-semibold text-ink">Scopes we request and why:</p>
+            <ul className="list-disc pl-6 space-y-2 mt-2">
+              <li>
+                <strong>gmail.send</strong> — Used to send application emails and follow-ups to restaurants
+                on your behalf. Emails are only sent when you explicitly click &quot;Send&quot; and confirm
+                the action.
+              </li>
+              <li>
+                <strong>gmail.metadata</strong> — Used to check your Gmail threads for replies from
+                restaurants you have contacted through the Service. We only read message metadata
+                (sender address, timestamp, message count) on threads initiated by the Service;
+                we never read message bodies, never scan your full inbox, and never access threads
+                we did not originate.
+              </li>
+            </ul>
+            <p className="mt-3 font-semibold text-ink">Limited Use disclosure:</p>
+            <ul className="list-disc pl-6 space-y-2 mt-2">
+              <li>We limit our use of Google user data to providing and improving the user-facing features
+                described above. We do not use this data for any other purpose.</li>
+              <li>We do not transfer Google user data to third parties, except as necessary to provide the
+                Service (e.g., sending an email via the Gmail API), for security investigations, or to
+                comply with applicable law.</li>
+              <li>We do not use Google user data for advertising, marketing, or any form of interest-based
+                profiling.</li>
+              <li>We do not sell, rent, or trade Google user data to any third party, data broker, or
+                information reseller.</li>
+              <li>We do not allow humans to read your email content unless you have given explicit consent,
+                it is required for security purposes (e.g., investigating abuse), or it is necessary to
+                comply with applicable law.</li>
+              <li>Gmail OAuth tokens are stored securely and encrypted at rest in our database. Tokens are
+                only used to perform the actions described above and are deleted when you revoke access or
+                delete your account.</li>
             </ul>
           </section>
 
@@ -182,8 +207,8 @@ export default function PrivacyPolicyPage() {
             <p>
               If you have questions about this Privacy Policy or wish to exercise your data rights,
               contact us at:{" "}
-              <a href="mailto:uddaloc24@gmail.com" className="underline hover:text-ink">
-                uddaloc24@gmail.com
+              <a href="mailto:office@kitchenapplications.com" className="underline hover:text-ink">
+                office@kitchenapplications.com
               </a>
             </p>
           </section>
