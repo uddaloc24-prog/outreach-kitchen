@@ -95,13 +95,6 @@ export default function PrivacyPolicyPage() {
                 on your behalf. Emails are only sent when you explicitly click &quot;Send&quot; and confirm
                 the action.
               </li>
-              <li>
-                <strong>gmail.metadata</strong> — Used to check your Gmail threads for replies from
-                restaurants you have contacted through the Service. We only read message metadata
-                (sender address, timestamp, message count) on threads initiated by the Service;
-                we never read message bodies, never scan your full inbox, and never access threads
-                we did not originate.
-              </li>
             </ul>
             <p className="mt-3 font-semibold text-ink">Limited Use disclosure:</p>
             <ul className="list-disc pl-6 space-y-2 mt-2">

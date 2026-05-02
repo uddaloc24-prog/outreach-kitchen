@@ -8,17 +8,26 @@ import { DashboardStatsRow } from "@/components/DashboardStats";
 import { FollowUpQueue } from "@/components/FollowUpQueue";
 import { StatusBadge } from "@/components/ui/badge";
 import { starsDisplay, formatDate } from "@/lib/utils";
-import { Loader2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { RestaurantWithOutreach, DashboardStats } from "@/types";
 import { ReferralSection } from "@/components/ReferralSection";
 
-function LogRow({ r }: { r: RestaurantWithOutreach }) {
+function LogRow({
+  r,
+  onMarkReplied,
+}: {
+  r: RestaurantWithOutreach;
+  onMarkReplied: (outreachId: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
-  const subject = (r.outreach_log as unknown as Record<string, string>)?.email_subject;
-  const body = (r.outreach_log as unknown as Record<string, string>)?.email_body;
+  const log = r.outreach_log as unknown as Record<string, string> | undefined;
+  const subject = log?.email_subject;
+  const body = log?.email_body;
+  const outreachId = log?.id;
+  const status = r.outreach_log?.status ?? "not_contacted";
 
   return (
     <>
@@ -41,7 +50,19 @@ function LogRow({ r }: { r: RestaurantWithOutreach }) {
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
-            <StatusBadge status={r.outreach_log?.status ?? "not_contacted"} />
+            <StatusBadge status={status} />
+            {status === "sent" && outreachId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMarkReplied(outreachId);
+                }}
+                className="text-[11px] text-muted hover:text-ink underline decoration-dotted underline-offset-2"
+              >
+                Mark replied
+              </button>
+            )}
             {body && (
               expanded
                 ? <ChevronUp size={12} className="text-muted" />
@@ -79,7 +100,6 @@ export default function DashboardPage() {
     applications_remaining: null,
   });
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
@@ -117,17 +137,21 @@ export default function DashboardPage() {
     fetchData().finally(() => setLoading(false));
   }, [authStatus, session]);
 
-  async function syncReplies() {
+  async function markReplied(outreachId: string) {
     try {
-      setSyncing(true);
-      const res = await fetch("/api/sync/replies", { method: "POST" });
-      const data = await res.json();
-      toast.success(`Synced: ${data.replied} replies, ${data.followup_triggered} follow-ups`);
+      const res = await fetch(`/api/outreach/${outreachId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "replied" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to mark replied");
+      }
+      toast.success("Marked as replied");
       await fetchData();
-    } catch {
-      toast.error("Sync failed");
-    } finally {
-      setSyncing(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
     }
   }
 
@@ -162,19 +186,6 @@ export default function DashboardPage() {
             <p className="text-label text-muted">Outreach</p>
             <h1 className="font-display text-h1 text-ink mt-1">Dashboard</h1>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={syncReplies}
-            disabled={syncing}
-          >
-            {syncing ? (
-              <Loader2 size={12} className="animate-spin mr-2" />
-            ) : (
-              <RefreshCw size={12} className="mr-2" />
-            )}
-            Sync replies
-          </Button>
         </div>
 
         {/* Stats */}
@@ -216,7 +227,7 @@ export default function DashboardPage() {
                 </tr>
               ) : (
                 log.map((r) => (
-                  <LogRow key={r.id} r={r} />
+                  <LogRow key={r.id} r={r} onMarkReplied={markReplied} />
                 ))
               )}
             </tbody>
